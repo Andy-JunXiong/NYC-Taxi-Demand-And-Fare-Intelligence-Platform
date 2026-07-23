@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp*/
 .ipynb_checkpoints/
 
 # Virtual environments
@@ -22,8 +23,17 @@ data/interim/*
 data/processed/*
 !data/processed/.gitkeep
 
+# A small reviewed sample may be committed; generated samples stay local by default
+data/sample/*
+!data/sample/.gitkeep
+!data/sample/README.md
+!data/sample/yellow_taxi_sample.parquet
+
 # Editors and operating systems
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# Trained model artifacts and evaluation outputs
+models/

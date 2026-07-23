@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A governed NYC taxi demand case study covering data engineering, exploratory analysis, forecasting, model failure and production release controls.">
+  <title>NYC Taxi Intelligence — A Data Story</title>
+  <style>
+    :root{--black:#11110f;--cream:#f3efe5;--yellow:#f7c900;--red:#e74932;--blue:#2457d6;--grey:#77766f;--line:#cbc6b8}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--black);font-family:Arial,Helvetica,sans-serif}a{color:inherit;text-decoration:none}img{display:block;width:100%}
+    .masthead{height:62px;padding:0 4vw;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #222;background:var(--black);color:#fff;position:sticky;top:0;z-index:9}.masthead b{font-size:15px;letter-spacing:-.02em}.masthead b i{color:var(--yellow);font-style:normal}.masthead nav{display:flex;gap:24px;font:700 10px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}.masthead nav a:hover{color:var(--yellow)}.issue{font:700 9px ui-monospace,monospace;color:#aaa}
+    .hero{min-height:calc(100vh - 62px);background:var(--yellow);display:grid;grid-template-columns:minmax(0,1.25fr) minmax(360px,.75fr);overflow:hidden}.hero-copy{padding:9vh 5vw 6vh;display:flex;flex-direction:column}.kicker{font:700 10px ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase}.hero h1{max-width:900px;margin:5vh 0 3vh;font-family:Georgia,"Times New Roman",serif;font-size:clamp(70px,9vw,145px);font-weight:400;line-height:.83;letter-spacing:-.065em}.deck{max-width:720px;margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(19px,2vw,28px);line-height:1.38}.byline{margin-top:auto;padding-top:50px;display:flex;gap:28px;font:700 10px ui-monospace,monospace;text-transform:uppercase}.hero-visual{position:relative;background:var(--black);color:#fff;min-height:600px;isolation:isolate}.street-grid{position:absolute;inset:-10%;opacity:.38;background:repeating-linear-gradient(23deg,transparent 0 38px,#f7c900 39px 42px),repeating-linear-gradient(102deg,transparent 0 70px,#fff 71px 72px);transform:rotate(-6deg)}.borough{position:absolute;z-index:1;font-family:Georgia,serif;font-style:italic;color:#777}.borough.b1{top:11%;left:12%;font-size:25px}.borough.b2{top:34%;right:7%;font-size:19px}.borough.b3{bottom:18%;left:8%;font-size:21px}.taxi-mark{position:absolute;z-index:2;right:8%;bottom:8%;width:220px;height:110px;background:var(--yellow);border-radius:14px 28px 8px 8px;box-shadow:0 18px 50px #000}.taxi-mark:before{content:"NYC";position:absolute;left:24px;top:26px;color:#111;font:900 38px Arial}.taxi-mark:after{content:"T";display:grid;place-items:center;position:absolute;right:28px;top:-34px;width:54px;height:38px;background:var(--yellow);color:#111;font-weight:900}.wheel{position:absolute;z-index:3;bottom:4.5%;width:48px;height:48px;background:#111;border:7px solid #ddd;border-radius:50%}.w1{right:13%}.w2{right:30%}
+    .opening{padding:130px 5vw 150px;display:grid;grid-template-columns:1fr minmax(280px,520px) 1fr;gap:5vw;border-bottom:1px solid var(--line)}.opening .big-number{font-family:Georgia,serif;font-size:clamp(90px,13vw,190px);line-height:.8;letter-spacing:-.08em}.opening .big-number span{display:block;margin-top:16px;font:700 10px ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}.opening article{font-family:Georgia,serif;font-size:21px;line-height:1.6}.opening article p:first-child:first-letter{float:left;margin:10px 12px 0 0;font-size:86px;line-height:.6;color:var(--red)}.opening .fact{align-self:end;padding:24px 0;border-top:5px solid var(--black);border-bottom:1px solid var(--black)}.opening .fact b{display:block;font-size:46px;letter-spacing:-.05em}.opening .fact span{font:700 10px ui-monospace,monospace;text-transform:uppercase}.proof-strip{grid-column:1/-1;padding-top:22px;border-top:1px solid var(--black);display:flex;flex-wrap:wrap;gap:10px 28px;font:700 10px/1.5 ui-monospace,monospace;text-transform:uppercase}.proof-strip b{color:var(--blue)}.scope-note{margin:-35px 0 60px;padding:18px 20px;border-left:7px solid var(--yellow);background:#e7e1d3;font:700 10px/1.7 ui-monospace,monospace;text-transform:uppercase}.scope-note b{color:var(--blue)}
+    .story{max-width:1380px;margin:auto;padding:140px 5vw}.chapter-mark{display:flex;align-items:center;gap:18px;margin-bottom:55px;font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}.chapter-mark:before{content:"";width:48px;height:7px;background:var(--yellow)}.story h2{max-width:1000px;margin:0 0 75px;font-family:Georgia,serif;font-size:clamp(52px,7vw,100px);font-weight:400;line-height:.95;letter-spacing:-.055em}.story h2 em{color:var(--red);font-weight:400}.finding{display:grid;grid-template-columns:330px 1fr;gap:7vw;padding:70px 0;border-top:1px solid var(--line)}.finding-copy{position:sticky;top:110px;align-self:start}.finding-copy .index{font:700 10px ui-monospace,monospace;color:var(--red)}.finding-copy h3{margin:22px 0 18px;font-family:Georgia,serif;font-size:36px;font-weight:400;line-height:1.06}.finding-copy p{margin:0;color:#55534d;font-family:Georgia,serif;font-size:17px;line-height:1.55}.finding-copy strong{display:block;margin-top:26px;font:700 11px/1.5 ui-monospace,monospace;color:var(--blue);text-transform:uppercase}.figure{background:#fff;padding:22px;border:1px solid var(--line)}.figure figcaption{display:flex;justify-content:space-between;gap:30px;padding:0 0 18px;font:700 10px ui-monospace,monospace;text-transform:uppercase}.figure figcaption span{color:var(--grey)}.native-chart{height:430px}.native-chart.tall{height:500px}.chart-fallback{height:100%;display:grid;place-items:center;color:#777;font-family:Georgia,serif}.map-wrap{position:relative}.taxi-map{height:560px;background:#d8d4c9}.map-legend{position:absolute;z-index:500;right:14px;bottom:14px;width:180px;padding:12px;background:#111e;color:#fff;font:700 9px/1.5 ui-monospace,monospace;text-transform:uppercase;box-shadow:0 5px 20px #0004}.legend-scale{height:6px;margin:8px 0;background:linear-gradient(90deg,#2457d6,#36b37e,#f7c900,#e74932)}.legend-row{display:flex;justify-content:space-between;color:#ccc}.map-fallback{height:100%;display:grid;place-items:center;padding:40px;text-align:center;font-family:Georgia,serif;color:#555}.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#111;color:#fff}.leaflet-popup-content{font:12px/1.5 Arial,sans-serif}.leaflet-popup-content b{color:var(--yellow)}
+    .manifesto{background:var(--black);color:#fff;padding:140px 5vw}.manifesto-inner{max-width:1250px;margin:auto}.manifesto h2{max-width:1050px;margin:0;font-family:Georgia,serif;font-size:clamp(55px,7vw,102px);font-weight:400;line-height:.96;letter-spacing:-.05em}.manifesto h2 span{color:var(--yellow)}.rules{margin-top:100px;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #444;border-left:1px solid #444}.rule{min-height:240px;padding:24px;border-right:1px solid #444;border-bottom:1px solid #444}.rule i{font:700 10px ui-monospace,monospace;color:var(--yellow);font-style:normal}.rule b{display:block;margin:76px 0 12px;font-size:19px}.rule p{margin:0;color:#aaa;font-family:Georgia,serif;font-size:14px;line-height:1.5}
+    .questions-section{padding:140px 5vw;background:#ddd6c6}.questions-wrap{max-width:1300px;margin:auto;display:grid;grid-template-columns:380px 1fr;gap:7vw}.questions-wrap h2{position:sticky;top:110px;margin:0;font-family:Georgia,serif;font-size:72px;font-weight:400;line-height:.9;letter-spacing:-.055em}.questions{border-top:3px solid var(--black)}.question{display:grid;grid-template-columns:55px 1fr;padding:30px 0;border-bottom:1px solid #aaa398}.question>span{font:700 10px ui-monospace,monospace;color:var(--red)}.question h3{margin:0 0 14px;font-family:Georgia,serif;font-size:27px;font-weight:400}.question p{margin:0;color:#55534d;font-size:14px;line-height:1.6}.question b{display:block;margin-top:13px;color:var(--blue);font:700 10px ui-monospace,monospace;text-transform:uppercase}
+    .model-story{padding:140px 5vw;background:#fff}.model-wrap{max-width:1300px;margin:auto}.model-wrap>h2{max-width:940px;margin:0 0 90px;font-family:Georgia,serif;font-size:clamp(52px,7vw,96px);font-weight:400;line-height:.96;letter-spacing:-.055em}.score-layout{display:grid;grid-template-columns:1.1fr .9fr;gap:6vw}.score-table{border-top:5px solid var(--black)}.score-row{min-height:62px;display:grid;grid-template-columns:1fr .8fr .8fr;align-items:center;border-bottom:1px solid #ddd;font:15px ui-monospace,monospace}.score-row.head{min-height:48px;color:#777;font-size:9px;text-transform:uppercase}.score-row strong{color:var(--blue);font-size:19px}.verdict{padding:42px;background:var(--yellow)}.verdict small{font:700 10px ui-monospace,monospace;text-transform:uppercase}.verdict b{display:block;margin:50px 0 18px;font-family:Georgia,serif;font-size:110px;font-weight:400;line-height:.8;letter-spacing:-.08em}.verdict h3{font-family:Georgia,serif;font-size:30px;font-weight:400}.verdict p{line-height:1.6}
+    .failure{margin-top:130px}.failure-head{display:grid;grid-template-columns:1fr 1fr;gap:8vw;align-items:end;padding-bottom:40px;border-bottom:5px solid var(--black)}.failure-head h3{margin:0;font-family:Georgia,serif;font-size:62px;font-weight:400;line-height:.95}.failure-head p{margin:0;font-family:Georgia,serif;font-size:18px;line-height:1.6}.timeline{display:grid;grid-template-columns:repeat(3,1fr)}.event{padding:34px 28px 40px;border-right:1px solid #bbb}.event:last-child{border:0}.event small{font:700 10px ui-monospace,monospace;text-transform:uppercase}.event b{display:block;margin:55px 0 8px;font-family:Georgia,serif;font-size:62px;font-weight:400}.event span{color:#777;font:700 10px ui-monospace,monospace}.event.bad{color:var(--red)}.event.hold{color:#b16b00}.event.good{color:#17825b}
+    .system{padding:140px 5vw;background:var(--blue);color:#fff}.system-inner{max-width:1300px;margin:auto}.system h2{max-width:1000px;margin:0 0 80px;font-family:Georgia,serif;font-size:clamp(52px,7vw,98px);font-weight:400;line-height:.95}.pipeline{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid #ffffff66;border-left:1px solid #ffffff66}.stage{min-height:250px;padding:20px;border-right:1px solid #ffffff66;border-bottom:1px solid #ffffff66}.stage small{font:700 9px ui-monospace,monospace;color:#b9ccff}.stage b{display:block;margin:88px 0 10px;font-family:Georgia,serif;font-size:22px;font-weight:400}.stage p{margin:0;color:#cdd9ff;font-size:11px;line-height:1.5}.use-case{margin-top:45px;padding:30px 0;border-top:1px solid #ffffff66;display:grid;grid-template-columns:220px 1fr;gap:5vw}.use-case span{font:700 9px ui-monospace,monospace;color:#b9ccff}.use-case p{max-width:760px;margin:0;font-family:Georgia,serif;font-size:25px;line-height:1.4}.limits{padding:140px 5vw;background:#e6e0d2}.limits-inner{max-width:1300px;margin:auto}.limits h2{max-width:820px;margin:0 0 70px;font-family:Georgia,serif;font-size:clamp(50px,7vw,92px);font-weight:400;line-height:.96}.limit-grid{display:grid;grid-template-columns:repeat(2,1fr);border-top:3px solid var(--black)}.limit{padding:30px 25px 35px 0;border-bottom:1px solid #aaa398}.limit:nth-child(odd){padding-right:45px;border-right:1px solid #aaa398}.limit:nth-child(even){padding-left:45px}.limit b{display:block;margin-bottom:12px;font-family:Georgia,serif;font-size:24px;font-weight:400}.limit p{margin:0;color:#55534d;font-size:13px;line-height:1.65}
+    .decision-takeaway{padding:125px 5vw;background:#fff;border-bottom:1px solid var(--line)}.decision-inner{max-width:1300px;margin:auto}.decision-grid{display:grid;grid-template-columns:minmax(300px,.85fr) 1.15fr;gap:8vw;align-items:start}.decision-copy .audience,.builder-copy .audience{display:block;margin-bottom:24px;font:700 10px ui-monospace,monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--red)}.decision-copy h2,.builder-copy h2{margin:0;font-family:Georgia,serif;font-size:clamp(52px,6vw,86px);font-weight:400;line-height:.94;letter-spacing:-.055em}.decision-copy p{max-width:570px;margin:35px 0 0;font-family:Georgia,serif;font-size:24px;line-height:1.5;color:#4e4b45}.decision-routes{border-top:4px solid var(--black)}.decision-route{display:grid;grid-template-columns:60px minmax(140px,.7fr) 1.3fr;gap:22px;padding:30px 0;border-bottom:1px solid #b9b4aa;align-items:start}.decision-route>span{font:700 11px ui-monospace,monospace;color:var(--blue)}.decision-route b{font-family:Georgia,serif;font-size:25px;font-weight:400}.decision-route p{margin:2px 0 0;font-size:17px;line-height:1.55;color:#55534d}.decision-foot{margin-top:26px;padding:20px 22px;background:var(--yellow);font:700 11px/1.6 ui-monospace,monospace;text-transform:uppercase}
+    .builder-takeaway{padding:135px 5vw;background:var(--black);color:#fff}.builder-inner{max-width:1300px;margin:auto}.builder-grid{display:grid;grid-template-columns:minmax(300px,.85fr) 1.15fr;gap:8vw}.builder-copy .audience{color:var(--yellow)}.builder-copy>p{max-width:520px;margin:34px 0 0;color:#bbb7ad;font-family:Georgia,serif;font-size:23px;line-height:1.55}.builder-proof{border-top:1px solid #555}.builder-proof div{display:grid;grid-template-columns:48px 1fr;padding:25px 0;border-bottom:1px solid #444}.builder-proof span{color:var(--yellow);font:700 10px ui-monospace,monospace}.builder-proof p{margin:0;color:#ddd9d0;font-size:18px;line-height:1.5}.builder-verdict{margin-top:70px;padding:34px 38px;background:var(--yellow);color:var(--black);display:grid;grid-template-columns:220px 1fr;gap:5vw;align-items:center}.builder-verdict span{font:700 10px ui-monospace,monospace;text-transform:uppercase}.builder-verdict strong{font-family:Georgia,serif;font-size:clamp(26px,3vw,43px);font-weight:400;line-height:1.2}
+    .ending{padding:18vh 5vw;text-align:center;background:var(--yellow)}.ending span{font:700 10px ui-monospace,monospace;letter-spacing:.15em}.ending h2{max-width:1100px;margin:28px auto;font-family:Georgia,serif;font-size:clamp(62px,9vw,135px);font-weight:400;line-height:.86;letter-spacing:-.07em}.ending p{max-width:720px;margin:0 auto 35px;font-family:Georgia,serif;font-size:20px;line-height:1.5}.cta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px}.back{display:inline-block;padding:16px 22px;background:var(--black);color:#fff;font:700 10px ui-monospace,monospace;text-transform:uppercase}.back.outline{background:transparent;color:var(--black);border:1px solid var(--black)}footer{padding:36px 4vw;background:var(--black);color:#888;display:flex;justify-content:space-between;font:700 9px ui-monospace,monospace;text-transform:uppercase}
+    /* Readability pass: sized for laptop reading and interview projection. */
+    body{font-size:17px}
+    .masthead b{font-size:17px}.masthead nav{font-size:12px}.issue{font-size:11px}
+    .kicker,.chapter-mark,.ending>span{font-size:12px}
+    .byline,.proof-strip{font-size:12px;line-height:1.6}
+    .opening article{font-size:23px}.opening .fact span{font-size:12px}.opening .fact p{font-size:17px;line-height:1.55}
+    .scope-note{font-size:12px;line-height:1.8}
+    .question>span{font-size:12px}.question h3{font-size:31px;line-height:1.15}.question p{font-size:17px;line-height:1.7}.question b{font-size:12px;line-height:1.55}
+    .finding-copy .index{font-size:12px}.finding-copy h3{font-size:40px;line-height:1.08}.finding-copy p{font-size:20px;line-height:1.62}.finding-copy strong{font-size:12px;line-height:1.6}
+    .figure figcaption{font-size:12px;line-height:1.45}
+    .rule i,.stage small,.use-case span{font-size:11px}.rule b{font-size:22px}.rule p{font-size:17px;line-height:1.6}
+    .score-row{font-size:17px}.score-row.head{font-size:11px}.score-row strong{font-size:21px}
+    .verdict small,.event small,.event span{font-size:11px}.verdict p,.failure-head p{font-size:19px;line-height:1.65}
+    .stage b{font-size:25px}.stage p{font-size:14px;line-height:1.55}
+    .limit b{font-size:27px}.limit p{font-size:16px;line-height:1.7}
+    footer{font-size:11px}
+    @media(max-width:900px){.hero{grid-template-columns:1fr}.hero-visual{min-height:420px}.opening{grid-template-columns:1fr}.opening .fact{max-width:450px}.decision-grid,.builder-grid{grid-template-columns:1fr}.finding{grid-template-columns:1fr}.finding-copy{position:static}.questions-wrap{grid-template-columns:1fr}.questions-wrap h2{position:static}.score-layout,.failure-head{grid-template-columns:1fr}.rules{grid-template-columns:1fr 1fr}.pipeline{grid-template-columns:repeat(3,1fr)}}@media(max-width:600px){body{font-size:17px}.masthead{padding:0 18px}.masthead nav,.issue{display:none}.hero-copy{padding:70px 20px 45px}.hero h1{font-size:68px}.hero-visual{min-height:330px}.opening,.decision-takeaway,.story,.manifesto,.questions-section,.model-story,.system,.limits,.builder-takeaway{padding:85px 20px}.proof-strip{display:grid}.opening article{font-size:20px}.decision-copy h2,.builder-copy h2,.story h2,.model-wrap>h2,.system h2,.limits h2{font-size:51px}.decision-copy p,.builder-copy>p{font-size:20px}.decision-route{grid-template-columns:42px 1fr}.decision-route p{grid-column:2}.builder-verdict{grid-template-columns:1fr;padding:28px 24px}.finding-copy h3{font-size:35px}.finding-copy p{font-size:19px}.rules,.timeline,.pipeline,.limit-grid{grid-template-columns:1fr}.limit:nth-child(n){padding:28px 0;border-right:0}.use-case{grid-template-columns:1fr}.questions-wrap h2{font-size:57px}.question h3{font-size:28px}.question p{font-size:17px}.score-row{font-size:14px}.score-row.head{font-size:9px}.verdict b{font-size:88px}.failure-head h3{font-size:48px}.event{border-right:0;border-bottom:1px solid #bbb}.ending{padding:110px 20px}.ending h2{font-size:63px}footer{padding:28px 20px;flex-direction:column;gap:10px}}
+  </style>
+</head>
+<body>
+  <header class="masthead"><b>NYC TAXI <i>INTELLIGENCE</i></b><nav><a href="#decision">Decision</a><a href="#evidence">Evidence</a><a href="#model">Model</a><a href="#system">System</a><a href="#demonstrates">For hiring teams</a><a href="https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform">GitHub ↗</a></nav><span class="issue">DATA PRODUCT · 2025</span></header>
+
+  <section class="hero" id="top">
+    <div class="hero-copy"><span class="kicker">A GOVERNED URBAN MOBILITY DATA STORY</span><h1>The city<br>never moves<br>at random.</h1><p class="deck">Inside 100 million taxi records: the rhythms, failures and engineering decisions behind a production-ready demand system.</p><div class="byline"><span>Built by Andy Jun Xiong</span><span>Data coverage 2022—2025</span><span>Solo portfolio project</span></div></div>
+    <div class="hero-visual" aria-label="Abstract New York street grid"><div class="street-grid"></div><span class="borough b1">Manhattan</span><span class="borough b2">Queens</span><span class="borough b3">Brooklyn</span><div class="taxi-mark"></div><div class="wheel w1"></div><div class="wheel w2"></div></div>
+  </section>
+
+  <section class="opening" id="story">
+    <div class="big-number">100M+<span>PUBLIC TRIP RECORDS</span></div>
+    <article><p>Public does not mean trustworthy. Each month arrives as a large Parquet file with its own schema risks, edge cases and operational failure modes.</p><p>The project began with a simple premise: before forecasting New York, build a data product that can explain where every number came from.</p></article>
+    <div class="fact"><span>THE RESULT</span><b>37 / 37</b><p>monthly partitions passed the governed demand gate.</p></div>
+    <div class="proof-strip"><span><b>100M+</b> source records</span><span><b>2.92M</b> Gold zone-hour rows</span><span><b>7/7</b> forecast folds won</span><span><b>32/32</b> release checks passed</span></div>
+  </section>
+
+  <section class="decision-takeaway" id="decision">
+    <div class="decision-inner">
+      <div class="chapter-mark">THE PRODUCT DECISION</div>
+      <div class="decision-grid">
+        <div class="decision-copy"><span class="audience">FOR FLEET PLANNERS &amp; OPERATIONS ANALYSTS</span><h2>What decision does this support?</h2><p>Use the next-day zone-hour forecast to prioritise where and when fleet capacity deserves attention—then route exceptional demand through the right specialist model.</p></div>
+        <div><div class="decision-routes">
+          <div class="decision-route"><span>01</span><b>Ordinary zones</b><p>Use the global forecast for routine zone-hour planning and daily demand review.</p></div>
+          <div class="decision-route"><span>02</span><b>JFK &amp; LaGuardia</b><p>Use the airport specialist where the global model carries its largest absolute errors.</p></div>
+          <div class="decision-route"><span>03</span><b>Known events</b><p>Use the event-aware forecast and require additional release gates before publication.</p></div>
+        </div><div class="decision-foot">OUTPUT → A GOVERNED NEXT-DAY DEMAND OUTLOOK · NOT INDIVIDUAL VEHICLE DISPATCH</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="questions-section" id="questions">
+    <div class="questions-wrap"><h2>Start with the decisions,<br>not the charts.</h2><div class="questions">
+      <div class="question"><span>01</span><div><h3>Can the raw TLC data be trusted?</h3><p>Only after schema validation, checksum lineage and Bronze–Silver reconciliation.</p><b>37 monthly partitions passed</b></div></div>
+      <div class="question"><span>02</span><div><h3>Where is demand concentrated?</h3><p>Manhattan dominates; the airports form a distinct specialist segment.</p><b>89.1% Manhattan</b></div></div>
+      <div class="question"><span>03</span><div><h3>When does demand peak?</h3><p>Weekday late afternoons, led by Thursday at 18:00.</p><b>250,454 governed pickups</b></div></div>
+      <div class="question"><span>04</span><div><h3>Does the model beat simple baselines?</h3><p>Seven expanding-window folds test that claim without a random split.</p><b>Evaluated Jul 2024–Jan 2025</b></div></div>
+      <div class="question"><span>05</span><div><h3>Why use an airport specialist?</h3><p>Because JFK and LaGuardia carried the global model’s largest absolute errors.</p><b>Specialist routing tested separately</b></div></div>
+      <div class="question"><span>06</span><div><h3>What failed on New Year’s Day?</h3><p>A midnight event surge tested whether monitoring would protect production.</p><b>Failure preserved for audit</b></div></div>
+      <div class="question"><span>07</span><div><h3>Did the replacement really improve?</h3><p>The replacement still had to pass ordinary, airport and event gates.</p><b>No threshold was relaxed</b></div></div>
+    </div></div>
+  </section>
+
+  <section class="story" id="evidence">
+    <div class="chapter-mark">CHAPTER ONE · THE SHAPE OF DEMAND</div>
+    <h2>Millions of trips.<br><em>Four useful patterns.</em></h2>
+    <div class="scope-note"><b>Scope note</b> · Governance: 37 monthly partitions, 2022–2025 · Exploratory analysis: January–June 2024 · Modelling: seven expanding-window folds, July 2024–January 2025</div>
+    <div class="finding"><div class="finding-copy"><span class="index">01 / SEASONALITY</span><h3>May reached the first-half peak.</h3><p>Month-level seasonality matters for planning, but it is too coarse for daily operating decisions.</p><strong>Decision → model at zone-hour level</strong></div><figure class="figure"><figcaption><b>Monthly governed pickup demand</b><span>Jan–Jun 2024</span></figcaption><div id="monthly-chart" class="native-chart" role="img" aria-label="Monthly pickups rise toward a May 2024 peak before easing in June"><div class="chart-fallback">Loading monthly demand…</div></div></figure></div>
+    <div class="finding"><div class="finding-copy"><span class="index">02 / GEOGRAPHY</span><h3>Demand burns brightest in Manhattan—and at the airports.</h3><p>The map reveals a dense Midtown and Upper East Side corridor, while JFK and LaGuardia appear as separate high-volume nodes.</p><strong>Top 15 zones · 10.4M eligible pickups</strong></div><figure class="figure"><figcaption><b>Pickup-demand intensity by Taxi Zone</b><span>Jan–Jun 2024 · interactive map</span></figcaption><div class="map-wrap"><div id="taxi-demand-map" class="taxi-map" role="img" aria-label="Interactive map showing concentrated Yellow Taxi pickup demand in Manhattan, JFK and LaGuardia"><div class="map-fallback">Loading the interactive demand map…</div></div><div class="map-legend">Pickup intensity<div class="legend-scale"></div><div class="legend-row"><span>Lower</span><span>Higher</span></div></div></div></figure></div>
+    <div class="finding"><div class="finding-copy"><span class="index">03 / FARE</span><h3>Volume is not economic value.</h3><p>Fare and distance distributions distinguish trip volume from earning value when comparing operational zones. This is descriptive context, not a forecasting feature claim.</p><strong>Decision → evaluate volume and value separately</strong></div><figure class="figure"><figcaption><b>Median fare by distance band</b><span>Jan–Jun 2024 · eligible governed trips</span></figcaption><div id="fare-chart" class="native-chart" role="img" aria-label="Median fare increases across longer trip-distance bands"><div class="chart-fallback">Loading fare distribution…</div></div></figure></div>
+    <div class="finding"><div class="finding-copy"><span class="index">04 / TIME</span><h3>Weekday evenings form the recurring pulse.</h3><p>The rhythm is stable enough to forecast. Special events, however, can overwhelm it in a matter of hours.</p><strong>Peak → Thursday, 18:00</strong></div><figure class="figure"><figcaption><b>Demand by weekday and pickup hour</b><span>Jan–Jun 2024 · 250,454 peak-cell pickups</span></figcaption><div id="time-chart" class="native-chart tall" role="img" aria-label="Weekday late afternoons and evenings contain the strongest recurring demand"><div class="chart-fallback">Loading weekly demand rhythm…</div></div></figure></div>
+  </section>
+
+  <section class="manifesto">
+    <div class="manifesto-inner"><div class="chapter-mark">CHAPTER TWO · TRUST BEFORE PREDICTION</div><h2>A chart is only as credible as the <span>release behind it.</span></h2><div class="rules"><div class="rule"><i>01</i><b>Immutable source</b><p>Original files and checksums remain untouched.</p></div><div class="rule"><i>02</i><b>Non-destructive quality</b><p>Bad records are flagged before they are excluded.</p></div><div class="rule"><i>03</i><b>Declared lineage</b><p>Gold points to exact Silver inputs and versions.</p></div><div class="rule"><i>04</i><b>Atomic promotion</b><p>A failed candidate cannot damage production.</p></div></div></div>
+  </section>
+
+  <section class="model-story" id="model">
+    <div class="model-wrap"><div class="chapter-mark">CHAPTER THREE · THE MODEL EARNS TRUST</div><h2>No random split.<br>No hidden failure.</h2>
+      <div class="score-layout"><div class="score-table"><div class="score-row head"><span>Test month</span><span>Previous-week WAPE ↓</span><span>Candidate WAPE ↓</span></div><div class="score-row"><b>Jul 2024</b><span>31.27%</span><strong>19.47%</strong></div><div class="score-row"><b>Aug 2024</b><span>23.20%</span><strong>19.08%</strong></div><div class="score-row"><b>Sep 2024</b><span>24.28%</span><strong>18.49%</strong></div><div class="score-row"><b>Oct 2024</b><span>21.07%</span><strong>17.40%</strong></div><div class="score-row"><b>Nov 2024</b><span>27.03%</span><strong>18.82%</strong></div><div class="score-row"><b>Dec 2024</b><span>35.17%</span><strong>19.19%</strong></div><div class="score-row"><b>Jan 2025</b><span>29.18%</span><strong>20.89%</strong></div><p style="font:700 9px/1.6 ui-monospace,monospace;color:#777">WAPE is evaluated across all zone-hour forecasts in each monthly expanding-window fold. Lower is better.</p></div><aside class="verdict"><small>THE VERDICT</small><b>7/7</b><h3>The candidate wins every fold.</h3><p>Performance holds across changing demand regimes instead of depending on one lucky test month.</p></aside></div>
+      <div class="failure"><div class="failure-head"><h3>The failure that improved the system.</h3><p>New Year’s Day exposed a midnight-event blind spot. Monitoring blocked publication. I expanded the release gate instead of relaxing it.</p></div><div class="timeline"><div class="event bad"><small>01 · LIVE FAILURE</small><b>52.34%</b><span>NEW YEAR WAPE</span></div><div class="event hold"><small>02 · CANDIDATE REJECTED</small><b>78.36%</b><span>HIGH-DEMAND RECALL</span></div><div class="event good"><small>03 · REPLACEMENT APPROVED</small><b>81.87%</b><span>HIGH-DEMAND RECALL</span></div></div></div>
+    </div>
+  </section>
+
+  <section class="system" id="system"><div class="system-inner"><div class="chapter-mark">CHAPTER FOUR · THE PRODUCTION SYSTEM</div><h2>Six trust boundaries.<br>One recoverable path.</h2><div class="pipeline"><div class="stage"><small>01 · SOURCE</small><b>Official TLC</b><p>Resumable monthly Parquet</p></div><div class="stage"><small>02 · BRONZE</small><b>Immutable</b><p>Source + checksum ledger</p></div><div class="stage"><small>03 · SILVER</small><b>Observable</b><p>Enrichment + quality flags</p></div><div class="stage"><small>04 · GOLD</small><b>Governed</b><p>Zone-hour demand product</p></div><div class="stage"><small>05 · MODELS</small><b>Specialised</b><p>Global + airport + event</p></div><div class="stage"><small>06 · OPERATE</small><b>Auditable</b><p>Archive + monitor + ledger</p></div></div><div class="use-case"><span>DECISION SUPPORTED</span><p>Zone-level fleet planning and forecast review, using a governed next-day demand outlook rather than raw trip records.</p></div></div></section>
+
+  <section class="limits"><div class="limits-inner"><div class="chapter-mark">CHAPTER FIVE · WHAT THIS DOESN’T CLAIM</div><h2>Trust also means naming the boundary.</h2><div class="limit-grid"><div class="limit"><b>Not all urban mobility</b><p>Yellow Taxi records do not represent rideshare, transit, walking, cycling or every NYC traveller.</p></div><div class="limit"><b>Not causal inference</b><p>Calendar patterns describe governed demand. They do not prove why a neighbourhood or hour is busy.</p></div><div class="limit"><b>Limited external context</b><p>Weather is optional and major event knowledge is not yet a comprehensive real-time feed.</p></div><div class="limit"><b>Not dispatch optimisation</b><p>The output supports planning and review; it does not assign individual vehicles or guarantee revenue.</p></div></div></div></section>
+
+  <section class="builder-takeaway" id="demonstrates">
+    <div class="builder-inner">
+      <div class="builder-grid">
+        <div class="builder-copy"><span class="audience">FOR HIRING MANAGERS &amp; TECHNICAL REVIEWERS</span><h2>What this project demonstrates.</h2><p>The work is deliberately broader than model accuracy: it shows how an ambiguous public-data problem becomes an auditable, testable and recoverable decision product.</p></div>
+        <div class="builder-proof">
+          <div><span>01</span><p>Governed 37 monthly source partitions into traceable Bronze, Silver and Gold data products.</p></div>
+          <div><span>02</span><p>Designed leakage-safe expanding-window evaluation and beat the baseline in all seven folds.</p></div>
+          <div><span>03</span><p>Built global, airport and event-aware model routing around distinct operating regimes.</p></div>
+          <div><span>04</span><p>Preserved a failed live forecast as evidence, then converted it into stronger release controls.</p></div>
+          <div><span>05</span><p>Published versioned outputs with monitoring, atomic promotion and last-known-good protection.</p></div>
+        </div>
+      </div>
+      <div class="builder-verdict"><span>THE HIRING TAKEAWAY</span><strong>Andy built an end-to-end governed decision product—not merely an analysis notebook or a forecasting model.</strong></div>
+    </div>
+  </section>
+
+  <section class="ending"><span>THE OUTCOME</span><h2>Not a taxi model.<br>A decision product.</h2><p>263 zones × 24 hours. Global, airport and event-aware routing. Every publication gate passed.</p><div class="cta-row"><a class="back" href="https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform">View repository ↗</a><a class="back outline" href="https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/blob/main/docs/eda-data-governance-audit.md">Read technical notes ↗</a><a class="back outline" href="#top">Return to top ↑</a></div></section>
+  <footer><span>NYC TAXI DEMAND & FARE INTELLIGENCE</span><span>DATA ENGINEERING · EDA · FORECASTING · MLOPS</span></footer>
+  <script src="/runtime-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.22/dist.min.js"></script>
+  <script src="https://unpkg.com/@deck.gl/google-maps@8.9.22/dist.min.js"></script>
+  <script>
+    (function () {
+      if (!window.echarts) return;
+      const ink = "#11110f", muted = "#77766f", yellow = "#f7c900", red = "#e74932", blue = "#2457d6";
+      const base = {
+        animationDuration: 900,
+        textStyle: { fontFamily: "Arial, sans-serif", color: ink },
+        tooltip: { trigger: "axis", backgroundColor: "#111", borderWidth: 0, textStyle: { color: "#fff" } }
+      };
+      const monthly = echarts.init(document.getElementById("monthly-chart"));
+      monthly.setOption({
+        ...base,
+        grid: { left: 58, right: 28, top: 48, bottom: 48 },
+        xAxis: { type: "category", boundaryGap: false, data: ["JAN","FEB","MAR","APR","MAY","JUN"], axisLine: { lineStyle: { color: ink } }, axisTick: { show: false }, axisLabel: { fontFamily: "monospace", fontWeight: 700 } },
+        yAxis: { type: "value", min: 2.8, max: 3.9, name: "MILLION PICKUPS", nameTextStyle: { fontFamily: "monospace", fontSize: 9, fontWeight: 700 }, splitLine: { lineStyle: { color: "#e5e1d8" } }, axisLabel: { formatter: "{value}M" } },
+        series: [{ type: "line", data: [2.965,3.008,3.583,3.514,3.724,3.539], smooth: .28, symbolSize: 10, lineStyle: { width: 4, color: ink }, itemStyle: { color: red, borderColor: "#fff", borderWidth: 2 }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#f7c900cc" },{ offset: 1, color: "#f7c90012" }] } }, markPoint: { symbolSize: 54, label: { formatter: "PEAK", fontFamily: "monospace", fontSize: 9, fontWeight: 700 }, data: [{ coord: ["MAY",3.724] }] } }]
+      });
+      const fare = echarts.init(document.getElementById("fare-chart"));
+      fare.setOption({
+        ...base,
+        tooltip: { trigger: "item", backgroundColor: "#111", borderWidth: 0, formatter: p => `<b>${p.name} miles</b><br>Median fare $${p.value}` },
+        grid: { left: 58, right: 25, top: 42, bottom: 55 },
+        xAxis: { type: "category", data: ["<1","1–3","3–10","10+"], axisLine: { lineStyle: { color: ink } }, axisTick: { show: false }, axisLabel: { fontFamily: "monospace", fontWeight: 700 } },
+        yAxis: { type: "value", name: "MEDIAN FARE · USD", nameTextStyle: { fontFamily: "monospace", fontSize: 9, fontWeight: 700 }, splitLine: { lineStyle: { color: "#e5e1d8" } }, axisLabel: { formatter: "${value}" } },
+        series: [{ type: "bar", data: [7.2,12.8,26.1,70], barWidth: "46%", itemStyle: { color: p => [blue,"#5f7ee5",yellow,red][p.dataIndex], borderRadius: [3,3,0,0] }, label: { show: true, position: "top", formatter: p => "$" + p.value.toFixed(1), fontFamily: "Georgia, serif", fontSize: 17 } }]
+      });
+      const heat = [[0,0,167],[1,0,132],[2,0,91],[3,0,64],[4,0,38],[5,0,16],[6,0,24],[7,0,34],[8,0,51],[9,0,82],[10,0,112],[11,0,134],[12,0,152],[13,0,161],[14,0,165],[15,0,158],[16,0,159],[17,0,161],[18,0,154],[19,0,131],[20,0,120],[21,0,114],[22,0,93],[23,0,70],[0,1,45],[1,1,25],[2,1,16],[3,1,12],[4,1,13],[5,1,19],[6,1,45],[7,1,87],[8,1,116],[9,1,119],[10,1,120],[11,1,125],[12,1,136],[13,1,142],[14,1,157],[15,1,160],[16,1,157],[17,1,172],[18,1,176],[19,1,145],[20,1,136],[21,1,133],[22,1,107],[23,1,67],[0,2,35],[1,2,15],[2,2,7],[3,2,5],[4,2,7],[5,2,17],[6,2,46],[7,2,101],[8,2,139],[9,2,140],[10,2,137],[11,2,142],[12,2,152],[13,2,157],[14,2,171],[15,2,176],[16,2,176],[17,2,201],[18,2,218],[19,2,185],[20,2,176],[21,2,190],[22,2,159],[23,2,93],[0,3,44],[1,3,18],[2,3,10],[3,3,6],[4,3,8],[5,3,18],[6,3,48],[7,3,106],[8,3,145],[9,3,145],[10,3,141],[11,3,148],[12,3,160],[13,3,163],[14,3,178],[15,3,184],[16,3,191],[17,3,220],[18,3,234],[19,3,201],[20,3,192],[21,3,204],[22,3,180],[23,3,112],[0,4,54],[1,4,25],[2,4,13],[3,4,9],[4,4,10],[5,4,21],[6,4,53],[7,4,112],[8,4,152],[9,4,152],[10,4,146],[11,4,152],[12,4,163],[13,4,167],[14,4,184],[15,4,192],[16,4,197],[17,4,228],[18,4,250],[19,4,214],[20,4,202],[21,4,214],[22,4,203],[23,4,149],[0,5,87],[1,5,44],[2,5,24],[3,5,15],[4,5,15],[5,5,21],[6,5,46],[7,5,90],[8,5,119],[9,5,125],[10,5,133],[11,5,142],[12,5,155],[13,5,160],[14,5,178],[15,5,186],[16,5,185],[17,5,204],[18,5,221],[19,5,205],[20,5,163],[21,5,165],[22,5,180],[23,5,176],[0,6,155],[1,6,123],[2,6,88],[3,6,54],[4,6,30],[5,6,14],[6,6,23],[7,6,36],[8,6,59],[9,6,91],[10,6,118],[11,6,140],[12,6,162],[13,6,170],[14,6,169],[15,6,177],[16,6,189],[17,6,195],[18,6,202],[19,6,198],[20,6,165],[21,6,167],[22,6,189],[23,6,192]];
+      const time = echarts.init(document.getElementById("time-chart"));
+      time.setOption({
+        ...base,
+        tooltip: { position: "top", backgroundColor: "#111", borderWidth: 0, formatter: p => `<b>${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][p.value[1]]} ${String(p.value[0]).padStart(2,"0")}:00</b><br>${p.value[2]},000 pickups` },
+        grid: { left: 58, right: 25, top: 30, bottom: 85 },
+        xAxis: { type: "category", data: Array.from({length:24},(_,i)=>i), splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { interval: 1, fontFamily: "monospace" } },
+        yAxis: { type: "category", data: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { fontFamily: "monospace", fontWeight: 700 } },
+        visualMap: { min: 0, max: 250, calculable: false, orient: "horizontal", left: "center", bottom: 15, text: ["250K","0"], textStyle: { fontFamily: "monospace", fontSize: 9 }, inRange: { color: ["#f4f0e6","#9cb1ef",blue,yellow,red] } },
+        series: [{ type: "heatmap", data: heat, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: "#0008", borderColor: "#fff", borderWidth: 2 } }, itemStyle: { borderColor: "#fff", borderWidth: 1 } }]
+      });
+      addEventListener("resize", () => [monthly,fare,time].forEach(c => c.resize()));
+    }());
+  </script>
+  <script>
+    (function () {
+      const points = [{"id":161,"name":"Midtown Center","trips":954875,"lat":40.758028043526267,"lng":-73.97769793122403},{"id":237,"name":"Upper East Side South","trips":947082,"lat":40.76861518381156,"lng":-73.9656345353807},{"id":132,"name":"JFK Airport","trips":916774,"lat":40.64698489239527,"lng":-73.78653298335013},{"id":236,"name":"Upper East Side North","trips":879901,"lat":40.78043643718996,"lng":-73.9570116983574},{"id":162,"name":"Midtown East","trips":701956,"lat":40.75668765218885,"lng":-73.97235594352033},{"id":230,"name":"Times Sq/Theatre District","trips":688118,"lat":40.759817617191835,"lng":-73.98419648907567},{"id":142,"name":"Lincoln Square East","trips":665241,"lat":40.773633293027054,"lng":-73.9815322063918},{"id":186,"name":"Penn Station/Madison Sq West","trips":657209,"lat":40.748497181405014,"lng":-73.9924375369761},{"id":138,"name":"LaGuardia Airport","trips":638759,"lat":40.77437570593239,"lng":-73.8736286428908},{"id":163,"name":"Midtown North","trips":584026,"lat":40.76442140578679,"lng":-73.97756868222719},{"id":239,"name":"Upper West Side South","trips":583601,"lat":40.78396143031376,"lng":-73.97863194845081},{"id":170,"name":"Murray Hill","trips":581942,"lat":40.74774579364388,"lng":-73.97849159965224},{"id":234,"name":"Union Sq","trips":543495,"lat":40.74033744175702,"lng":-73.99045782354735},{"id":68,"name":"East Chelsea","trips":541450,"lat":40.74842755506573,"lng":-73.99991742024714},{"id":48,"name":"Clinton East","trips":517025,"lat":40.76225275531936,"lng":-73.98984464313301}];
+      const target = document.getElementById("taxi-demand-map");
+      const config = window.NYC_TAXI_CONFIG;
+      if (!target || !config?.googleMapsApiKey || !config?.googleMapId || !window.deck) {
+        if (target) target.innerHTML = '<div class="map-fallback">Google Maps configuration is unavailable. Start this page with the local server.</div>';
+        return;
+      }
+      const loadGoogleMaps = () => new Promise((resolve, reject) => {
+        window.__initNycTaxiGoogleMap = resolve;
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.googleMapsApiKey)}&loading=async&callback=__initNycTaxiGoogleMap&v=weekly`;
+        script.onerror = () => reject(new Error("Google Maps could not load"));
+        document.head.append(script);
+      });
+      loadGoogleMaps().then(async () => {
+        const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
+          google.maps.importLibrary("maps"),
+          google.maps.importLibrary("marker"),
+        ]);
+        target.innerHTML = "";
+        const map = new Map(target, {
+          center: { lat: 40.735, lng: -73.93 },
+          zoom: 11,
+          mapId: config.googleMapId,
+          clickableIcons: false,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: true,
+          gestureHandling: "cooperative",
+        });
+        const heatmap = new deck.HeatmapLayer({
+          id: "nyc-yellow-taxi-demand",
+          data: points,
+          getPosition: d => [d.lng, d.lat],
+          getWeight: d => d.trips,
+          radiusPixels: 46,
+          intensity: 1.25,
+          threshold: .03,
+          colorRange: [
+            [36,87,214,0],
+            [36,87,214,180],
+            [54,179,126,210],
+            [247,201,0,235],
+            [231,73,50,255],
+          ],
+          pickable: true,
+        });
+        new deck.GoogleMapsOverlay({ layers: [heatmap] }).setMap(map);
+        const info = new google.maps.InfoWindow();
+        points.forEach(p => {
+          const dot = document.createElement("span");
+          dot.style.cssText = "display:block;width:10px;height:10px;border:1px solid #111;border-radius:50%;background:#f7c900;box-shadow:0 1px 4px #0008";
+          const marker = new AdvancedMarkerElement({
+            position: { lat: p.lat, lng: p.lng },
+            map,
+            title: p.name,
+            content: dot,
+            gmpClickable: true,
+          });
+          marker.addEventListener("gmp-click", () => {
+            info.setContent(`<div style="font:13px/1.5 Arial;color:#111"><b>${p.name}</b><br>${p.trips.toLocaleString()} eligible pickups<br>Jan–Jun 2024</div>`);
+            info.open({ map, anchor: marker });
+          });
+        });
+      }).catch(() => {
+        target.innerHTML = '<div class="map-fallback">Google Maps could not load. Check the API key, billing, API restrictions, and localhost:3001 website restriction.</div>';
+      });
+    }());
+  </script>
+</body>
+</html>

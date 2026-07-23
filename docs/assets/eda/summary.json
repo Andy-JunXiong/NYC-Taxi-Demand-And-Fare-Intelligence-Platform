@@ -1,0 +1,33 @@
+{
+  "period": [
+    "2024-01",
+    "2024-06"
+  ],
+  "eligible_pickups": 20331944,
+  "peak_month": "2024-05-01",
+  "top_borough": "Manhattan",
+  "top_zone": "Midtown Center",
+  "airport_pickups": 1555533,
+  "pickups_per_day": {
+    "Weekday": 112599.15,
+    "Weekend": 109501.06
+  },
+  "fare_distribution": {
+    "fare_eligible_rows": 20009098.0,
+    "mean_fare": 19.46050879255065,
+    "median_fare": 13.5,
+    "p95_fare": 62.8721075618763,
+    "mean_distance": 4.672510461990659,
+    "median_distance": 1.76,
+    "mean_duration_minutes": 16.93849432143318,
+    "median_duration_minutes": 12.6
+  },
+  "quality_flags": {
+    "pickup_outside_partition": 149,
+    "nonpositive_duration": 6177,
+    "negative_fare": 315747,
+    "negative_total": 257431,
+    "implausible_speed": 6266,
+    "candidate_duplicate_rows": 2
+  }
+}

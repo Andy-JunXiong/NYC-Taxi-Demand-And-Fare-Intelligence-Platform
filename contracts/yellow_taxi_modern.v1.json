@@ -1,0 +1,27 @@
+{
+  "contract": "yellow_taxi_modern",
+  "version": 1,
+  "grain": "one vendor-reported taxi trip",
+  "required_columns": {
+    "VendorID": ["INTEGER", "BIGINT"],
+    "tpep_pickup_datetime": ["TIMESTAMP", "TIMESTAMP_NS"],
+    "tpep_dropoff_datetime": ["TIMESTAMP", "TIMESTAMP_NS"],
+    "passenger_count": ["INTEGER", "BIGINT", "DOUBLE"],
+    "trip_distance": ["DOUBLE", "FLOAT", "DECIMAL"],
+    "RatecodeID": ["INTEGER", "BIGINT", "DOUBLE"],
+    "PULocationID": ["INTEGER", "BIGINT"],
+    "DOLocationID": ["INTEGER", "BIGINT"],
+    "payment_type": ["INTEGER", "BIGINT"],
+    "fare_amount": ["DOUBLE", "FLOAT", "DECIMAL"],
+    "tip_amount": ["DOUBLE", "FLOAT", "DECIMAL"],
+    "tolls_amount": ["DOUBLE", "FLOAT", "DECIMAL"],
+    "total_amount": ["DOUBLE", "FLOAT", "DECIMAL"]
+  },
+  "identity_note": "The source has no guaranteed unique trip identifier; candidate duplicates are reported, not automatically deleted.",
+  "time_zone": "America/New_York",
+  "source_time_semantics": "Vendor-reported local wall time; raw timestamps remain unchanged in Bronze and Silver.",
+  "products": {
+    "demand": ["pickup timestamp belongs to source month", "pickup zone exists in official dimension"],
+    "fare": ["demand-valid", "positive duration", "nonnegative distance", "nonnegative fare and total"]
+  }
+}

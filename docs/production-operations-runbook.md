@@ -1,0 +1,49 @@
+# Production operations runbook
+
+## Forecast archive and latest release
+
+Every successful forecast publication archives the previously published Parquet and lineage pair under:
+
+```text
+data/processed/forecasts/archive/
+  forecast_date=YYYY-MM-DD/
+    generated_at=YYYYMMDDTHHMMSSZ/
+      forecast.parquet
+      lineage.json
+```
+
+`data/processed/forecasts/latest.json` is the stable pointer to the current forecast, lineage, model checksum, output checksum, and generation time. A failed publication never changes the archive, current product, or latest pointer.
+
+## Operational run ledger
+
+All audited commands write to `data/processed/operations/runs.sqlite`, table `pipeline_runs`. Each row records the run ID, workflow, requested period, start/end time, status, gate state, Gold/model/forecast checksums, structured result, and any error.
+
+Statuses are `running`, `completed`, `blocked`, or `failed`. A quality/model/drift gate can produce `blocked` without corrupting the last published product; an exception produces `failed` with its error and traceback.
+
+```powershell
+python -m src.nyc_taxi.operations monthly --start 2025-02 --end 2025-02
+python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+python -m src.nyc_taxi.operations forecast --horizon 24
+python -m src.nyc_taxi.operations monitor
+```
+
+## Failure recovery
+
+- Downloads retain `.part` files and resume with an HTTP Range request. A server that does not support Range causes a safe full-file restart.
+- Existing raw and Silver partitions are skipped unless `--force` is supplied.
+- Silver and Gold write to temporary files and replace published Parquet only after reconciliation succeeds.
+- The monthly job derives the historical Gold range from lineage and checks every expected monthly quality report, preventing a one-month run from truncating historical Gold.
+- Model and forecast production files use temporary writes and atomic replacement after their release gates pass.
+- Forecast versions are immutable in the archive.
+
+## Scheduling
+
+`.github/workflows/operations.yml` provides monthly scheduled and manually dispatched production workflows. It intentionally targets a persistent self-hosted Windows runner labeled `nyc-taxi`; GitHub-hosted ephemeral runners do not retain the multi-gigabyte governed lake or production model between runs.
+
+The scheduled run processes the previous month, then executes model validation, forecast publication, and monitoring in order. Concurrency is limited to one production workflow and running jobs are never cancelled by a newer trigger.
+
+External setup required once: register the machine as a GitHub Actions self-hosted runner and add the `nyc-taxi` label. No API secret is required for public TLC downloads.
+
+## CI sample
+
+The ordinary CI workflow runs on GitHub-hosted Ubuntu with `data/sample/yellow_taxi_sample.parquet`. The end-to-end sample test validates the schema, creates a January Bronze subset and zone dimension, builds Silver, evaluates the demand gate, and publishes a temporary Gold product. CI never downloads the full lake or writes production artifacts.

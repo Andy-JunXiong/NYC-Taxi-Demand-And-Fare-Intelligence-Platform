@@ -1,0 +1,59 @@
+name: NYC Taxi Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Workflow to run
+        required: true
+        type: choice
+        options: [monthly, model, forecast, monitor]
+      start:
+        description: Monthly start (YYYY-MM)
+        required: false
+      end:
+        description: Monthly end (YYYY-MM)
+        required: false
+  schedule:
+    - cron: "30 8 5 * *"
+
+concurrency:
+  group: nyc-taxi-production
+  cancel-in-progress: false
+
+jobs:
+  production:
+    runs-on: [self-hosted, windows, nyc-taxi]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+      - name: Resolve task and period
+        id: operation
+        shell: powershell
+        run: |
+          $task = if ('${{ github.event_name }}' -eq 'schedule') { 'monthly' } else { '${{ inputs.task }}' }
+          $period = (Get-Date -Day 1).AddMonths(-1).ToString('yyyy-MM')
+          $start = if ('${{ inputs.start }}') { '${{ inputs.start }}' } else { $period }
+          $end = if ('${{ inputs.end }}') { '${{ inputs.end }}' } else { $period }
+          "task=$task" >> $env:GITHUB_OUTPUT
+          "start=$start" >> $env:GITHUB_OUTPUT
+          "end=$end" >> $env:GITHUB_OUTPUT
+      - name: Monthly governed release
+        if: steps.operation.outputs.task == 'monthly'
+        shell: powershell
+        run: |
+          python -m src.nyc_taxi.operations monthly --start '${{ steps.operation.outputs.start }}' --end '${{ steps.operation.outputs.end }}'
+          python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+          python -m src.nyc_taxi.operations forecast --horizon 24
+          python -m src.nyc_taxi.operations monitor
+      - name: Model validation
+        if: steps.operation.outputs.task == 'model'
+        run: python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+      - name: Forecast publication
+        if: steps.operation.outputs.task == 'forecast'
+        run: python -m src.nyc_taxi.operations forecast --horizon 24
+      - name: Forecast monitoring
+        if: steps.operation.outputs.task == 'monitor'
+        run: python -m src.nyc_taxi.operations monitor

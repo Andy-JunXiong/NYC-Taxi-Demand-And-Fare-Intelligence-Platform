@@ -1,0 +1,7 @@
+quality_flag,rows
+pickup_outside_partition,149
+nonpositive_duration,6177
+negative_fare,315747
+negative_total,257431
+implausible_speed,6266
+candidate_duplicate_rows,2

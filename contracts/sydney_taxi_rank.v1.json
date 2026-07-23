@@ -1,0 +1,40 @@
+{
+  "contract": "sydney_taxi_rank",
+  "version": 1,
+  "source_specification": "TfNSW Taxi Rank API Documentation v2.0, September 2025",
+  "license": "Creative Commons Attribution",
+  "timezone": {
+    "source_events": "UTC",
+    "business_calendar": "Australia/Sydney"
+  },
+  "coverage": "Selected CCTV-equipped and secure taxi ranks in NSW; not representative of every Sydney or NSW taxi trip.",
+  "feeds": {
+    "static": {
+      "root": "ranks_info",
+      "grain": "one taxi rank",
+      "required": ["rank_id", "rank_name", "comments", "city", "state", "lga", "operating_hours", "longitude", "latitude", "bays"]
+    },
+    "realtime": {
+      "root": "ranks_realtime",
+      "grain": "one current observation per taxi rank",
+      "required": ["rank_id", "status", "rank_capacity", "taxis_at_rank", "passengers_at_rank", "passenger_wait_time_mins", "last_updated_UTC"]
+    },
+    "historical": {
+      "root": "rank_history",
+      "grain": "one rank, UTC 15-minute interval, and class",
+      "required": ["rank_id", "total_bays", "start_time", "end_time", "class", "from_previous_count", "total", "new_arrivals", "average_wait"],
+      "class_values": ["taxi", "passenger", "wat"],
+      "passenger_bands": ["Low", "Medium", "High"],
+      "semantic_warning": "Passenger fields are ordinal bands, not passenger counts. They must never be coerced into numeric trip totals."
+    }
+  },
+  "missing_tokens": ["N/A", "None", ""],
+  "release_gates": [
+    "required root and fields exist",
+    "rank_id is present",
+    "historical class is recognised",
+    "timestamps parse as UTC",
+    "interval is exactly 15 minutes",
+    "Bronze-to-Silver row counts reconcile"
+  ]
+}
