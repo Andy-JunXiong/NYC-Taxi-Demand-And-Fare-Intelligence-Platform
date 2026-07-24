@@ -1,0 +1,71 @@
+{
+  "contract": "agentgov.control-mapping",
+  "schema_version": "1.0",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "controls": [
+    {
+      "control_id": "governed-input-lineage",
+      "objective": "Admit only governed hourly demand and release-gated model artifacts with checksum lineage.",
+      "applicability": "applicable",
+      "enforcement_mode": "deterministic",
+      "implementation_refs": [
+        "src/nyc_taxi/prediction.py",
+        "src/nyc_taxi/model_validation.py"
+      ],
+      "verification_refs": [
+        "tests/test_prediction.py",
+        "docs/forecast-operations.md"
+      ],
+      "owner": "NYC Taxi platform maintainers",
+      "exception_authority": "Repository maintainer"
+    },
+    {
+      "control_id": "leakage-safe-model-admission",
+      "objective": "Require chronological evaluation and release-gate evidence before replacing the production model.",
+      "applicability": "applicable",
+      "enforcement_mode": "human_procedural",
+      "implementation_refs": [
+        "src/nyc_taxi/features.py",
+        "src/nyc_taxi/model_validation.py"
+      ],
+      "verification_refs": [
+        "tests/test_forecast.py",
+        "tests/test_quality_gates.py",
+        "docs/model-release-2024-h2.md"
+      ],
+      "owner": "NYC Taxi platform maintainers",
+      "exception_authority": "Repository maintainer"
+    },
+    {
+      "control_id": "fail-closed-publication",
+      "objective": "Prevent incomplete, invalid, or incorrectly routed forecasts from replacing the last valid product.",
+      "applicability": "applicable",
+      "enforcement_mode": "deterministic",
+      "implementation_refs": [
+        "src/nyc_taxi/prediction.py"
+      ],
+      "verification_refs": [
+        "tests/test_prediction.py",
+        "docs/production-operations-runbook.md"
+      ],
+      "owner": "NYC Taxi platform maintainers",
+      "exception_authority": "No runtime bypass; code changes require repository maintainer approval"
+    },
+    {
+      "control_id": "separate-validation-from-authorization",
+      "objective": "Prevent static checks and deterministic gates from being treated as authorization for production execution or external mutation.",
+      "applicability": "applicable",
+      "enforcement_mode": "human_procedural",
+      "implementation_refs": [
+        "AGENTS.md",
+        "docs/adr/INVARIANTS.md"
+      ],
+      "verification_refs": [
+        "governance/evidence/nyc-hourly-zone-demand-forecast.md",
+        "docs/production-operations-runbook.md"
+      ],
+      "owner": "NYC Taxi platform maintainers",
+      "exception_authority": "Authenticated repository maintainer; no AgentGov result grants authorization"
+    }
+  ]
+}

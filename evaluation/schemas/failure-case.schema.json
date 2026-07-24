@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/evaluation-failure-case-v1.json",
+  "title": "Evaluation Failure Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "capability_name",
+    "input",
+    "observed_failure",
+    "expected_behavior",
+    "regression_assertion",
+    "risk_level",
+    "source",
+    "review_status"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "capability_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "input": {"type": "object"},
+    "observed_failure": {"type": "string", "minLength": 10},
+    "expected_behavior": {"type": "string", "minLength": 10},
+    "regression_assertion": {"type": "object", "minProperties": 1},
+    "risk_level": {"enum": ["low", "medium", "high", "critical"]},
+    "source": {"$ref": "#/$defs/source"},
+    "review_status": {"const": "reviewed"}
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "reference", "sanitized"],
+      "properties": {
+        "source_type": {"enum": ["hand_constructed", "production_derived", "external"]},
+        "reference": {"type": "string", "minLength": 1},
+        "sanitized": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source_type": {"const": "production_derived"}}},
+          "then": {"properties": {"sanitized": {"const": true}}}
+        }
+      ]
+    }
+  }
+}

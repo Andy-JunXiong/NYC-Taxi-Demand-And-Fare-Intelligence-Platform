@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "complete-zone-hour-grid",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "input": {
+    "zones": [1, 132],
+    "horizon_hours": 2,
+    "forecast_rows": 4
+  },
+  "expected_properties": {
+    "publication_gate_passes": true,
+    "unique_zone_hour_pairs": 4,
+    "missing_zone_hour_pairs": 0
+  },
+  "source": {
+    "source_type": "hand_constructed",
+    "reference": "tests/test_prediction.py",
+    "sanitized": true
+  },
+  "review_status": "draft"
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/control-mapping-v1.json",
+  "title": "Capability Control Mapping",
+  "description": "Repository-native control declarations for one governed AI capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "schema_version", "capability_name", "controls"],
+  "properties": {
+    "contract": {"const": "agentgov.control-mapping"},
+    "schema_version": {"const": "1.0"},
+    "capability_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/control"}
+    }
+  },
+  "$defs": {
+    "fileReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control_id",
+        "objective",
+        "applicability",
+        "owner",
+        "exception_authority"
+      ],
+      "properties": {
+        "control_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "objective": {"type": "string", "minLength": 10},
+        "applicability": {
+          "enum": ["applicable", "not_applicable"]
+        },
+        "enforcement_mode": {
+          "enum": [
+            "deterministic",
+            "platform_enforced",
+            "human_procedural",
+            "advisory_only"
+          ]
+        },
+        "implementation_refs": {"$ref": "#/$defs/fileReferences"},
+        "verification_refs": {"$ref": "#/$defs/fileReferences"},
+        "owner": {"type": "string", "minLength": 1},
+        "exception_authority": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 10}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"applicability": {"const": "applicable"}},
+            "required": ["applicability"]
+          },
+          "then": {
+            "required": [
+              "enforcement_mode",
+              "implementation_refs",
+              "verification_refs"
+            ],
+            "not": {"required": ["rationale"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"applicability": {"const": "not_applicable"}},
+            "required": ["applicability"]
+          },
+          "then": {
+            "required": ["rationale"],
+            "not": {
+              "anyOf": [
+                {"required": ["enforcement_mode"]},
+                {"required": ["implementation_refs"]},
+                {"required": ["verification_refs"]}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NYC hourly zone-demand forecast input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hourly_demand_artifact",
+    "production_model_artifact",
+    "horizon_hours"
+  ],
+  "properties": {
+    "hourly_demand_artifact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository-relative reference to governed hourly demand history with pickup_zone_id, pickup_hour, and trip_count."
+    },
+    "production_model_artifact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository-relative reference to the release-gated production model bundle."
+    },
+    "horizon_hours": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 168,
+      "default": 24
+    }
+  }
+}

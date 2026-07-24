@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "airport-specialist-routing",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "input": {
+    "pickup_zone_id": 132,
+    "event_code": 0,
+    "predicted_trip_count": 10.0
+  },
+  "expected_properties": {
+    "model_type": "airport_specialist",
+    "publication_gate_passes": true
+  },
+  "source": {
+    "source_type": "hand_constructed",
+    "reference": "tests/test_prediction.py",
+    "sanitized": true
+  },
+  "review_status": "draft"
+}

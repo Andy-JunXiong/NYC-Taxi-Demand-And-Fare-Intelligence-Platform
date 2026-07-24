@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NYC hourly zone-demand forecast output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["forecast_rows", "lineage"],
+  "properties": {
+    "forecast_rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "forecast_generated_at",
+          "forecast_hour",
+          "pickup_zone_id",
+          "predicted_trip_count",
+          "model_type",
+          "model_version",
+          "event_code"
+        ],
+        "properties": {
+          "forecast_generated_at": {"type": "string", "format": "date-time"},
+          "forecast_hour": {"type": "string", "format": "date-time"},
+          "pickup_zone_id": {"type": "integer", "minimum": 1},
+          "predicted_trip_count": {"type": "number", "minimum": 0},
+          "model_type": {
+            "enum": ["global", "airport_specialist", "event_specialist"]
+          },
+          "model_version": {"type": "string", "minLength": 1},
+          "event_code": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "generated_at",
+        "forecast_start",
+        "forecast_end",
+        "horizon_hours",
+        "zones",
+        "rows",
+        "source_gold_sha256",
+        "production_model_sha256",
+        "output_sha256",
+        "gate"
+      ],
+      "properties": {
+        "generated_at": {"type": "string", "format": "date-time"},
+        "forecast_start": {"type": "string"},
+        "forecast_end": {"type": "string"},
+        "horizon_hours": {"type": "integer", "minimum": 1, "maximum": 168},
+        "zones": {"type": "integer", "minimum": 1},
+        "rows": {"type": "integer", "minimum": 1},
+        "source_gold_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "production_model_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "gate": {
+          "type": "object",
+          "required": ["passed"],
+          "properties": {"passed": {"const": true}}
+        }
+      }
+    }
+  }
+}

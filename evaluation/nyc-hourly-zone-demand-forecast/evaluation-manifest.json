@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "declared_readiness": "needs_seed_cases",
+  "cases": {
+    "seed": [
+      "seed-cases/seed-complete-zone-hour-grid.json",
+      "seed-cases/seed-airport-specialist-routing.json",
+      "seed-cases/seed-negative-prediction-blocked.json"
+    ],
+    "golden": [],
+    "failure": []
+  },
+  "baseline": {
+    "human_approved": false,
+    "evidence_refs": []
+  },
+  "regression": {
+    "threshold_configured": false,
+    "minimum_pass_rate": null
+  },
+  "decision": {
+    "outcome": "pending",
+    "reason": "Initial synthetic cases await accountable maintainer review.",
+    "reviewer": "unassigned",
+    "reviewed_at": "2026-07-24",
+    "evidence_refs": []
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "contract": "agentgov.capability-dependencies",
+  "schema_version": "1.0",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "depends_on": []
+}

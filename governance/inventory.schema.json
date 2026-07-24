@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/governance-inventory-v1.json",
+  "title": "Governance Inventory",
+  "description": "Repository-owner declarations of governed AI capabilities and explicit exclusions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "schema_version", "capabilities", "exclusions"],
+  "properties": {
+    "contract": {"const": "agentgov.governance-inventory"},
+    "schema_version": {"const": "1.0"},
+    "capabilities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/capability"}
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/exclusion"}
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "manifest", "owner", "governance_status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "governance_status": {
+          "enum": ["provisional", "active", "retired"]
+        }
+      }
+    },
+    "exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 10
+        }
+      }
+    }
+  }
+}

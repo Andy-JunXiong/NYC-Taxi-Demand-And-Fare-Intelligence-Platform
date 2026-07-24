@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/evaluation-manifest-v1.json",
+  "title": "Evaluation Readiness Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_name",
+    "declared_readiness",
+    "cases",
+    "baseline",
+    "regression"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "capability_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "declared_readiness": {
+      "enum": [
+        "not_configured",
+        "schema_only",
+        "needs_seed_cases",
+        "baseline_ready",
+        "regression_ready"
+      ]
+    },
+    "cases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "golden", "failure"],
+      "properties": {
+        "seed": {"$ref": "#/$defs/fileReferences"},
+        "golden": {"$ref": "#/$defs/fileReferences"},
+        "failure": {"$ref": "#/$defs/fileReferences"}
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_approved", "evidence_refs"],
+      "properties": {
+        "human_approved": {"type": "boolean"},
+        "reviewer": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "format": "date"},
+        "evidence_refs": {"$ref": "#/$defs/fileReferences"}
+      }
+    },
+    "regression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_configured", "minimum_pass_rate"],
+      "properties": {
+        "threshold_configured": {"type": "boolean"},
+        "minimum_pass_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "baseline_comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline_ref",
+            "metric",
+            "direction",
+            "minimum_improvement"
+          ],
+          "properties": {
+            "baseline_ref": {"type": "string", "pattern": "^[^\\s]+$"},
+            "metric": {"type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"},
+            "direction": {"enum": ["higher_is_better", "lower_is_better"]},
+            "minimum_improvement": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "reason", "reviewer", "reviewed_at", "evidence_refs"],
+      "properties": {
+        "outcome": {
+          "enum": ["pending", "accepted", "accepted_with_conditions", "rejected"]
+        },
+        "reason": {"type": "string", "minLength": 10},
+        "reviewer": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "format": "date"},
+        "evidence_refs": {"$ref": "#/$defs/fileReferences"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "declared_readiness": {"enum": ["baseline_ready", "regression_ready"]}
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "required": ["reviewer"],
+            "properties": {
+              "human_approved": {"const": true},
+              "evidence_refs": {"minItems": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"declared_readiness": {"const": "regression_ready"}}
+      },
+      "then": {
+        "properties": {
+          "regression": {
+            "properties": {
+              "threshold_configured": {"const": true}
+            },
+            "oneOf": [
+              {
+                "properties": {"minimum_pass_rate": {"type": "number"}},
+                "not": {"required": ["baseline_comparison"]}
+              },
+              {
+                "properties": {"minimum_pass_rate": {"type": "null"}},
+                "required": ["baseline_comparison"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "properties": {"outcome": {"const": "pending"}},
+            "required": ["outcome"]
+          }
+        },
+        "required": ["decision"]
+      },
+      "then": {},
+      "else": {
+        "properties": {
+          "decision": {
+            "properties": {"evidence_refs": {"minItems": 1}}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "fileReferences": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[^\\s]+$"}
+    }
+  }
+}

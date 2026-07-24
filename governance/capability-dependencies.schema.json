@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/capability-dependencies-v1.json",
+  "title": "Capability Dependencies",
+  "description": "Explicit dependency declarations for one governed AI capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "schema_version", "capability_name", "depends_on"],
+  "properties": {
+    "contract": {"const": "agentgov.capability-dependencies"},
+    "schema_version": {"const": "1.0"},
+    "capability_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/dependency"}
+    }
+  },
+  "$defs": {
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability"],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "minimum_readiness": {
+          "enum": [
+            "not_configured",
+            "schema_only",
+            "needs_seed_cases",
+            "baseline_ready",
+            "regression_ready"
+          ]
+        }
+      }
+    }
+  }
+}

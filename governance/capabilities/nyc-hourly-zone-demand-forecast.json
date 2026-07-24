@@ -1,0 +1,54 @@
+{
+  "contract": "agentgov.ai-capability",
+  "schema_version": "1.0",
+  "name": "nyc-hourly-zone-demand-forecast",
+  "version": "1.0.0",
+  "purpose": "Publish a governed one-to-168-hour forecast of Yellow Taxi pickup counts for every available NYC Taxi Zone.",
+  "capability_type": "decision_support",
+  "implementation_mode": "hybrid",
+  "decision_authority": "inform",
+  "autonomy_level": "deterministic_gate",
+  "task_type": "time_series_forecasting",
+  "triggers": [
+    "An operator invokes the governed NYC hourly demand forecast workflow with approved demand history and production model artifacts"
+  ],
+  "not_for": [
+    "Fare, tip, driver-income, or passenger-demand prediction",
+    "Real-time dispatch, vehicle routing, or autonomous fleet allocation",
+    "Forecasting from ungoverned raw trip files or beyond a 168-hour horizon",
+    "Treating predictions as guaranteed demand or current regulatory advice"
+  ],
+  "contracts": {
+    "input_schema": "governance/contracts/nyc-hourly-zone-demand-forecast.input.schema.json",
+    "output_schema": "governance/contracts/nyc-hourly-zone-demand-forecast.output.schema.json"
+  },
+  "called_by": [
+    "src/nyc_taxi/operations.py",
+    ".github/workflows/operations.yml"
+  ],
+  "owner": "NYC Taxi platform maintainers",
+  "risk_level": "medium",
+  "human_review": {
+    "required": true,
+    "stages": [
+      "changes to data, model, or publication gates",
+      "authorization to run production model, forecast, deployment, or scheduling workflows"
+    ],
+    "reason": "Static checks and deterministic quality gates provide evidence but cannot authorize production execution, artifact replacement, deployment, or scheduling."
+  },
+  "evaluation": {
+    "readiness": "needs_seed_cases",
+    "evidence_refs": [
+      "evaluation/nyc-hourly-zone-demand-forecast/evaluation-manifest.json"
+    ]
+  },
+  "provenance": {
+    "origin": "extracted",
+    "source_refs": [
+      "governance/evidence/nyc-hourly-zone-demand-forecast.md",
+      "docs/demand-forecast-mvp.md",
+      "docs/model-release-2024-h2.md",
+      "docs/forecast-operations.md"
+    ]
+  }
+}

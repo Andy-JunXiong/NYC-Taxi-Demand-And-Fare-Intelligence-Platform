@@ -1,0 +1,13 @@
+{
+  "contract": "agentgov.governance-inventory",
+  "schema_version": "1.0",
+  "capabilities": [
+    {
+      "name": "nyc-hourly-zone-demand-forecast",
+      "manifest": "governance/capabilities/nyc-hourly-zone-demand-forecast.json",
+      "owner": "NYC Taxi platform maintainers",
+      "governance_status": "provisional"
+    }
+  ],
+  "exclusions": []
+}

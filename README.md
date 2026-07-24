@@ -234,6 +234,11 @@ Audited operation commands, automatic forecast archives, failure recovery,
 scheduling, and the small-data CI workflow are documented in
 [`docs/production-operations-runbook.md`](docs/production-operations-runbook.md).
 
+Repository-native AI/ML governance for the hourly zone-demand forecast is
+configured under `governance/` and `evaluation/`. The dated human decisions and
+environment work still outstanding are tracked in
+[`docs/governance-todo.md`](docs/governance-todo.md).
+
 ### Sydney localisation
 
 The platform now includes a contract-first TfNSW Taxi Rank adapter. Sydney history

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "negative-prediction-blocked",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "input": {
+    "pickup_zone_id": 1,
+    "predicted_trip_count": -1.0
+  },
+  "expected_properties": {
+    "nonnegative_predictions": false,
+    "publication_gate_passes": false,
+    "published_product_replaced": false
+  },
+  "source": {
+    "source_type": "hand_constructed",
+    "reference": "src/nyc_taxi/prediction.py",
+    "sanitized": true
+  },
+  "review_status": "draft"
+}

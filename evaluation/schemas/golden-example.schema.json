@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgov.dev/schemas/evaluation-golden-example-v1.json",
+  "title": "Evaluation Golden Example",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "capability_name",
+    "input",
+    "expected_output",
+    "source",
+    "approval"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "capability_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "input": {"type": "object"},
+    "expected_output": {"type": "object", "minProperties": 1},
+    "source": {"$ref": "#/$defs/source"},
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer", "rationale"],
+      "properties": {
+        "status": {"const": "approved"},
+        "reviewer": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 10}
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "reference", "sanitized"],
+      "properties": {
+        "source_type": {"enum": ["hand_constructed", "production_derived", "external"]},
+        "reference": {"type": "string", "minLength": 1},
+        "sanitized": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source_type": {"const": "production_derived"}}},
+          "then": {"properties": {"sanitized": {"const": true}}}
+        }
+      ]
+    }
+  }
+}
