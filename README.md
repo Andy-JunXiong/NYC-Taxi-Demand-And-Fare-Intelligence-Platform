@@ -1,103 +1,76 @@
-# NYC Taxi Demand & Fare Intelligence
+# NYC Taxi Demand & Fare Intelligence Platform
 
-An end-to-end analysis of the **2013 New York City yellow taxi trip dataset**. The project turns raw trip and fare records into operational insights for drivers and fleet owners, then compares regression models for fare and tip prediction.
+A reproducible urban-mobility data platform that turns governed NYC TLC trip
+records into auditable demand analytics, leakage-safe model evaluation, and
+bounded next-day zone-hour forecasts.
 
-> **Project status:** portfolio/archival analysis. The notebooks contain saved outputs, so the results can be reviewed directly on GitHub. The repository now uses relative data paths and environment-based credentials; re-running still requires downloading the large source archives.
+[![NYC Taxi Intelligence — from 100M+ records to a governed decision system](showcase/public/og.png)](https://andy-junxiong.github.io/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/)
+
+<p align="center">
+  <a href="https://andy-junxiong.github.io/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/"><strong>Explore the interactive data story →</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/production-operations-runbook.md">Operations runbook</a>
+  &nbsp;·&nbsp;
+  <a href="docs/eda-data-governance-audit.md">Governance audit</a>
+</p>
+
+> The showcase is a portfolio narrative over governed 2022–2025 evidence. It
+> supports planning and technical review; it is not live dispatch advice or a
+> claim about all NYC mobility.
 
 ## Results at a glance
 
-| Business outcome | Result from the notebooks |
-| --- | --- |
-| Demand hotspot | Manhattan, with additional concentrations near JFK and LaGuardia |
-| Peak trip demand | Evening commute, around 6 PM in the analyzed sample |
-| Best fare model | Tuned Random Forest, test RMSE approximately **$0.899** |
-| Best tip model | Tuned Random Forest, test RMSE approximately **$1.215** |
-| Weekday fleet allocation | **6 day-shift / 4 night-shift taxis** |
-| Weekend fleet allocation | **4 day-shift / 6 night-shift taxis** |
+| Product evidence | Result |
+| --- | ---: |
+| Governed source coverage | **37 monthly partitions** |
+| Source scale | **100M+ public trip records** |
+| Gold demand product | **2.92M zone-hour rows** |
+| Forecast output | **6,312 zone-hour predictions** |
+| Expanding-window evaluation | Candidate beat the previous-week baseline in **7/7 folds** |
+| Release validation | **32/32 checks passed** |
 
-The model scores are reproduced from the saved notebook outputs. Because the original workflow uses a random split and post-trip features, they should be read as retrospective model results—not as evidence of live, pre-trip forecasting performance.
-
-## What this project covers
-
-The analysis addresses ten business questions:
-
-1. When and where is taxi demand highest?
-2. How are passenger count, payment type, fares, and tips distributed?
-3. How do trip duration, distance, and fare relate?
-4. Can drivers be segmented by working hours and daily income?
-5. Which features have the greatest influence on fares and tips?
-6. How accurately can fare and tip amounts be predicted?
-7. How could an individual driver maximize daily earnings?
-8. How could a 10-taxi fleet allocate vehicles to maximize earnings?
-9. Which data-quality issues affect the analysis?
-10. What are the limitations of the selected model, and which alternatives are worth exploring?
-
-## Analysis workflow
+## What the platform does
 
 ```text
-Raw trip records + raw fare records
-                  │
-                  ▼
-      validation and data cleaning
-                  │
-                  ▼
- temporal, geographic, and earnings features
-                  │
-                  ▼
- borough/airport analysis and driver segmentation
-                  │
-                  ▼
- fare and tip models + operating recommendations
+Official TLC Parquet
+        ↓
+Immutable Bronze + checksums
+        ↓
+Observable Silver + quality flags
+        ↓
+Governed Gold zone-hour demand
+        ↓
+Global / airport / event-aware models
+        ↓
+Approval → publication → monitoring → archive
 ```
 
-The notebooks cover:
+- Downloads bounded monthly inputs with resumable transfers and checksum lineage.
+- Preserves source rows while separating quality flags from product eligibility.
+- Produces reproducible EDA and governed zone-hour demand tables.
+- Evaluates forecasts with chronological expanding windows rather than random splits.
+- Routes airport and known-event demand through specialist models.
+- Protects publication with approval, quality, model, and monitoring gates.
+- Preserves failed releases and last-known-good artifacts for audit and recovery.
 
-- validation of passenger counts, rate codes, monetary fields, timestamps, trip distance, duration, speed, and coordinates;
-- removal of invalid and extreme observations using geographic and domain-based rules;
-- temporal features such as hour, weekday, date, and day/night shift;
-- geographic features for NYC boroughs, Lower Manhattan, and airport trips;
-- earnings-per-minute and earnings-per-mile metrics;
-- K-means segmentation of drivers using average daily income and hours worked;
-- comparison of a mean baseline, Linear Regression, Lasso, Ridge, and Random Forest regressors;
-- fleet allocation recommendations for weekdays and weekends.
+## Decision boundary
 
-## Key findings
+The forecast supports next-day fleet-capacity planning and analyst review at the
+Taxi Zone × hour level. It does not assign individual vehicles, guarantee
+revenue, infer causal demand drivers, or represent rideshare, transit, walking,
+cycling, and every NYC traveller.
 
-- **Demand:** Manhattan is the dominant pickup area, with additional concentrations around JFK and LaGuardia. Demand rises after the early-morning low and reaches its daily peak around the evening commute.
-- **Earning efficiency:** the notebooks find the highest earnings per minute during late-night and early-morning hours, while daytime traffic reduces earning efficiency.
-- **Driver behavior:** hours worked and daily income are positively related; a six-cluster K-means solution is used to describe driver groups.
-- **Fare prediction:** Random Forest performs best among the tested models. The tuned model reports a test RMSE of approximately **0.899**, with trip distance and trip duration as the leading predictors.
-- **Tip prediction:** Random Forest also has the lowest test error for tips, but the improvement over the baseline is modest. The tuned model reports an RMSE of approximately **1.215**, and fare amount is its most important feature.
-- **Fleet strategy:** the analysis recommends a **6 day / 4 night** taxi split on weekdays and a **4 day / 6 night** split on weekends, with location choices guided by pickup demand and earning efficiency.
+## Repository map
 
-These findings are exploratory and are specific to the sampled 2013 data and the cleaning rules used in the notebooks. They should not be treated as current NYC operating recommendations.
-
-## Repository contents
-
-| File | Purpose |
+| Path | Purpose |
 | --- | --- |
-| [`Taxi-NYC-EDA-Part1.ipynb`](Taxi-NYC-EDA-Part1.ipynb) | Loads and merges raw data, audits data quality, removes outliers, and engineers temporal, geographic, airport, and earnings features. |
-| [`Taxi-NYC-EDA-Part2.ipynb`](Taxi-NYC-EDA-Part2.ipynb) | Adds borough and Lower Manhattan analysis and explores driver shift behavior. |
-| [`Taxi-NYC-Question-1-To-6.ipynb`](Taxi-NYC-Question-1-To-6.ipynb) | Answers demand and distribution questions, clusters drivers, and builds fare/tip prediction models. |
-| [`Taxi-NYC-Question-7.ipynb`](Taxi-NYC-Question-7.ipynb) | Develops an earning strategy for an individual taxi driver. |
-| [`Taxi-NYC-Question-8-To-10.ipynb`](Taxi-NYC-Question-8-To-10.ipynb) | Proposes a 10-taxi fleet strategy and discusses data and model limitations. |
-| [`Taxi.pptx`](Taxi.pptx) | Presentation summarizing the analysis and recommendations. |
-| [`data/README.md`](data/README.md) | Documents the expected local data layout and generated artifacts. |
-| [`requirements.txt`](requirements.txt) | Lists the Python packages required by the notebooks. |
-
-## Data
-
-The project uses NYC taxi trip and fare archives hosted by the Internet Archive:
-
-- [Trip data archive (`trip_data.7z`)](https://archive.org/download/nycTaxiTripData2013/trip_data.7z)
-- [Fare data archive (`trip_fare.7z`)](https://archive.org/download/nycTaxiTripData2013/trip_fare.7z)
-- [Dataset collection page](https://archive.org/details/nycTaxiTripData2013)
-
-The archives and generated CSV files are intentionally not stored in this repository. They are large, and the source data may be subject to external terms of use. Review those terms before redistributing it.
-
-The analysis reads `data/raw/trip_data_1.csv` and `data/raw/trip_fare_1.csv`, merges them, and writes `data/processed/Training_FeatureEngineering(borough).2_0.csv`. The later notebooks depend on that generated file. See [`data/README.md`](data/README.md) for the complete layout.
-
-## Running the notebooks
+| [`src/nyc_taxi/`](src/nyc_taxi/) | NYC ingestion, governance, forecasting, release, and monitoring workflows |
+| [`src/sydney_taxi/`](src/sydney_taxi/) | Contract-first TfNSW Taxi Rank localisation |
+| [`contracts/`](contracts/) | Governed data and publication contracts |
+| [`docs/`](docs/) | Architecture evidence, model releases, audits, and operational guidance |
+| [`showcase/`](showcase/) | Interactive portfolio case study and social preview |
+| [`tests/`](tests/) | Functional, policy, release-gate, and recovery tests |
+| Historical notebooks | Preserved 2013 exploratory evidence; not production entry points |
 
 ## Reproducible preprocessing pipeline
 
@@ -209,13 +182,14 @@ release gates with:
 python -m src.nyc_taxi.model_validation --first-test 2024-07 --max-iter 60
 ```
 
-The accepted 2024 H2 release is documented in
+This produces a candidate; promotion additionally requires a named human
+approval record bound to its SHA-256. The accepted 2024 H2 release is documented in
 [`docs/model-release-2024-h2.md`](docs/model-release-2024-h2.md).
 
 Publish the governed next-24-hour forecast and monitor it after actuals arrive:
 
 ```bash
-python -m src.nyc_taxi.prediction
+python -m src.nyc_taxi.prediction --approval-file <forecast-approval.json>
 python -m src.nyc_taxi.monitoring
 ```
 
