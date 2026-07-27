@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="A governed NYC taxi demand case study covering data engineering, exploratory analysis, forecasting, model failure and production release controls.">
   <title>NYC Taxi Intelligence — A Data Story</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <style>
     :root{--black:#11110f;--cream:#f3efe5;--yellow:#f7c900;--red:#e74932;--blue:#2457d6;--grey:#77766f;--line:#cbc6b8}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--black);font-family:Arial,Helvetica,sans-serif}a{color:inherit;text-decoration:none}img{display:block;width:100%}
@@ -123,10 +124,8 @@
 
   <section class="ending"><span>THE OUTCOME</span><h2>Not a taxi model.<br>A decision product.</h2><p>263 zones × 24 hours. Global, airport and event-aware routing. Every publication gate passed.</p><div class="cta-row"><a class="back" href="https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform">View repository ↗</a><a class="back outline" href="https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/blob/main/docs/eda-data-governance-audit.md">Read technical notes ↗</a><a class="back outline" href="#top">Return to top ↑</a></div></section>
   <footer><span>NYC TAXI DEMAND & FARE INTELLIGENCE</span><span>DATA ENGINEERING · EDA · FORECASTING · MLOPS</span></footer>
-  <script src="./runtime-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
-  <script src="https://unpkg.com/deck.gl@8.9.22/dist.min.js"></script>
-  <script src="https://unpkg.com/@deck.gl/google-maps@8.9.22/dist.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     (function () {
       if (!window.echarts) return;
@@ -171,72 +170,38 @@
     (function () {
       const points = [{"id":161,"name":"Midtown Center","trips":954875,"lat":40.758028043526267,"lng":-73.97769793122403},{"id":237,"name":"Upper East Side South","trips":947082,"lat":40.76861518381156,"lng":-73.9656345353807},{"id":132,"name":"JFK Airport","trips":916774,"lat":40.64698489239527,"lng":-73.78653298335013},{"id":236,"name":"Upper East Side North","trips":879901,"lat":40.78043643718996,"lng":-73.9570116983574},{"id":162,"name":"Midtown East","trips":701956,"lat":40.75668765218885,"lng":-73.97235594352033},{"id":230,"name":"Times Sq/Theatre District","trips":688118,"lat":40.759817617191835,"lng":-73.98419648907567},{"id":142,"name":"Lincoln Square East","trips":665241,"lat":40.773633293027054,"lng":-73.9815322063918},{"id":186,"name":"Penn Station/Madison Sq West","trips":657209,"lat":40.748497181405014,"lng":-73.9924375369761},{"id":138,"name":"LaGuardia Airport","trips":638759,"lat":40.77437570593239,"lng":-73.8736286428908},{"id":163,"name":"Midtown North","trips":584026,"lat":40.76442140578679,"lng":-73.97756868222719},{"id":239,"name":"Upper West Side South","trips":583601,"lat":40.78396143031376,"lng":-73.97863194845081},{"id":170,"name":"Murray Hill","trips":581942,"lat":40.74774579364388,"lng":-73.97849159965224},{"id":234,"name":"Union Sq","trips":543495,"lat":40.74033744175702,"lng":-73.99045782354735},{"id":68,"name":"East Chelsea","trips":541450,"lat":40.74842755506573,"lng":-73.99991742024714},{"id":48,"name":"Clinton East","trips":517025,"lat":40.76225275531936,"lng":-73.98984464313301}];
       const target = document.getElementById("taxi-demand-map");
-      const config = window.NYC_TAXI_CONFIG;
-      if (!target || !config?.googleMapsApiKey || !config?.googleMapId || !window.deck) {
-        if (target) target.innerHTML = '<div class="map-fallback">Google Maps configuration is unavailable. Start this page with the local server.</div>';
+      if (!target || !window.L) {
+        if (target) target.innerHTML = '<div class="map-fallback">The interactive map library could not load. Please refresh the page.</div>';
         return;
       }
-      const loadGoogleMaps = () => new Promise((resolve, reject) => {
-        window.__initNycTaxiGoogleMap = resolve;
-        const script = document.createElement("script");
-        script.async = true;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.googleMapsApiKey)}&loading=async&callback=__initNycTaxiGoogleMap&v=weekly`;
-        script.onerror = () => reject(new Error("Google Maps could not load"));
-        document.head.append(script);
+      target.innerHTML = "";
+      const map = L.map(target, {
+        scrollWheelZoom: false,
+        zoomControl: true,
       });
-      loadGoogleMaps().then(async () => {
-        const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
-          google.maps.importLibrary("maps"),
-          google.maps.importLibrary("marker"),
-        ]);
-        target.innerHTML = "";
-        const map = new Map(target, {
-          center: { lat: 40.735, lng: -73.93 },
-          zoom: 11,
-          mapId: config.googleMapId,
-          clickableIcons: false,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: true,
-          gestureHandling: "cooperative",
-        });
-        const heatmap = new deck.HeatmapLayer({
-          id: "nyc-yellow-taxi-demand",
-          data: points,
-          getPosition: d => [d.lng, d.lat],
-          getWeight: d => d.trips,
-          radiusPixels: 46,
-          intensity: 1.25,
-          threshold: .03,
-          colorRange: [
-            [36,87,214,0],
-            [36,87,214,180],
-            [54,179,126,210],
-            [247,201,0,235],
-            [231,73,50,255],
-          ],
-          pickable: true,
-        });
-        new deck.GoogleMapsOverlay({ layers: [heatmap] }).setMap(map);
-        const info = new google.maps.InfoWindow();
-        points.forEach(p => {
-          const dot = document.createElement("span");
-          dot.style.cssText = "display:block;width:10px;height:10px;border:1px solid #111;border-radius:50%;background:#f7c900;box-shadow:0 1px 4px #0008";
-          const marker = new AdvancedMarkerElement({
-            position: { lat: p.lat, lng: p.lng },
-            map,
-            title: p.name,
-            content: dot,
-            gmpClickable: true,
-          });
-          marker.addEventListener("gmp-click", () => {
-            info.setContent(`<div style="font:13px/1.5 Arial;color:#111"><b>${p.name}</b><br>${p.trips.toLocaleString()} eligible pickups<br>Jan–Jun 2024</div>`);
-            info.open({ map, anchor: marker });
-          });
-        });
-      }).catch(() => {
-        target.innerHTML = '<div class="map-fallback">Google Maps could not load. Check the API key, billing, API restrictions, and localhost:3001 website restriction.</div>';
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      const minTrips = Math.min(...points.map(p => p.trips));
+      const maxTrips = Math.max(...points.map(p => p.trips));
+      const demandStyle = trips => {
+        const intensity = (trips - minTrips) / (maxTrips - minTrips);
+        return {
+          radius: 8 + intensity * 12,
+          color: "#11110f",
+          weight: 1.5,
+          fillColor: intensity > .72 ? "#e74932" : intensity > .38 ? "#f7c900" : "#2457d6",
+          fillOpacity: .78,
+        };
+      };
+      const markers = points.map(p => {
+        const marker = L.circleMarker([p.lat, p.lng], demandStyle(p.trips)).addTo(map);
+        marker.bindPopup(`<b>${p.name}</b><br>${p.trips.toLocaleString()} eligible pickups<br>Jan–Jun 2024`);
+        marker.bindTooltip(`${p.name}: ${p.trips.toLocaleString()}`, { direction: "top" });
+        return marker;
       });
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(.12));
     }());
   </script>
 </body>
