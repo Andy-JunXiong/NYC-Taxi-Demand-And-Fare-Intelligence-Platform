@@ -1,19 +1,26 @@
 {
   "schema_version": "1.0",
   "capability_name": "nyc-hourly-zone-demand-forecast",
-  "declared_readiness": "needs_seed_cases",
+  "declared_readiness": "baseline_ready",
   "cases": {
     "seed": [
       "seed-cases/seed-complete-zone-hour-grid.json",
-      "seed-cases/seed-airport-specialist-routing.json",
-      "seed-cases/seed-negative-prediction-blocked.json"
+      "seed-cases/seed-airport-specialist-routing.json"
     ],
-    "golden": [],
-    "failure": []
+    "golden": [
+      "golden-examples/complete-zone-hour-grid.json"
+    ],
+    "failure": [
+      "failure-cases/negative-prediction-blocked.json"
+    ]
   },
   "baseline": {
-    "human_approved": false,
-    "evidence_refs": []
+    "human_approved": true,
+    "reviewer": "Jun Xiong",
+    "reviewed_at": "2026-08-01",
+    "evidence_refs": [
+      "reviews/2026-08-01-baseline-review.md"
+    ]
   },
   "regression": {
     "threshold_configured": false,
@@ -21,9 +28,11 @@
   },
   "decision": {
     "outcome": "pending",
-    "reason": "Initial synthetic cases await accountable maintainer review.",
-    "reviewer": "unassigned",
-    "reviewed_at": "2026-07-24",
-    "evidence_refs": []
+    "reason": "The baseline is approved, but no specific model candidate evaluation decision is claimed.",
+    "reviewer": "Jun Xiong",
+    "reviewed_at": "2026-08-01",
+    "evidence_refs": [
+      "reviews/2026-08-01-baseline-review.md"
+    ]
   }
 }

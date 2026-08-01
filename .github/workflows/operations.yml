@@ -14,6 +14,9 @@ on:
       end:
         description: Monthly end (YYYY-MM)
         required: false
+      approval_file:
+        description: Repository-relative human approval record
+        required: false
   schedule:
     - cron: "30 8 5 * *"
 
@@ -46,14 +49,19 @@ jobs:
         run: |
           python -m src.nyc_taxi.operations monthly --start '${{ steps.operation.outputs.start }}' --end '${{ steps.operation.outputs.end }}'
           python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
-          python -m src.nyc_taxi.operations forecast --horizon 24
-          python -m src.nyc_taxi.operations monitor
       - name: Model validation
         if: steps.operation.outputs.task == 'model'
-        run: python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+        shell: powershell
+        run: |
+          $approval = '${{ inputs.approval_file }}'
+          if ($approval) {
+            python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60 --approval-file $approval
+          } else {
+            python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+          }
       - name: Forecast publication
         if: steps.operation.outputs.task == 'forecast'
-        run: python -m src.nyc_taxi.operations forecast --horizon 24
+        run: python -m src.nyc_taxi.operations forecast --horizon 24 --approval-file '${{ inputs.approval_file }}'
       - name: Forecast monitoring
         if: steps.operation.outputs.task == 'monitor'
         run: python -m src.nyc_taxi.operations monitor

@@ -1,14 +1,16 @@
 {
   "schema_version": "1.0",
-  "case_id": "complete-zone-hour-grid",
+  "case_id": "complete-zone-hour-grid-golden",
   "capability_name": "nyc-hourly-zone-demand-forecast",
   "input": {
     "zones": [1, 132],
     "horizon_hours": 2,
     "forecast_rows": 4
   },
-  "expected_properties": {
+  "expected_output": {
     "publication_gate_passes": true,
+    "expected_rows": 4,
+    "actual_rows": 4,
     "unique_zone_hour_pairs": 4,
     "missing_zone_hour_pairs": 0
   },
@@ -17,5 +19,9 @@
     "reference": "tests/test_prediction.py::test_forecast_publication_gate_checks_grid_and_routing",
     "sanitized": true
   },
-  "review_status": "reviewed"
+  "approval": {
+    "status": "approved",
+    "reviewer": "Jun Xiong",
+    "rationale": "The example encodes the approved complete zone-by-hour publication invariant."
+  }
 }

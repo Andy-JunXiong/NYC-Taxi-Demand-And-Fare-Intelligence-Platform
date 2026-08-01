@@ -13,6 +13,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from .approvals import require_approval
 from .download import sha256_file
 from .forecast import LAGS, MODEL_FEATURES, ROLLING_WINDOWS, _us_holiday, load_hourly
 from .events import event_features
@@ -82,7 +83,19 @@ def validate_forecast(frame: pd.DataFrame, zones: set[int], horizon: int, airpor
     return {"passed": all(checks.values()), "checks": checks, "expected_rows": expected_rows, "actual_rows": len(frame)}
 
 
-def publish_forecast(hourly_path: Path, model_path: Path, output: Path, lineage_output: Path, gate_output: Path, *, horizon: int = 24) -> dict:
+def publish_forecast(
+    hourly_path: Path,
+    model_path: Path,
+    output: Path,
+    lineage_output: Path,
+    gate_output: Path,
+    *,
+    horizon: int = 24,
+    approval_file: Path,
+) -> dict:
+    approval = require_approval(
+        approval_file, action="forecast_publication", artifact_sha256=sha256_file(model_path)
+    )
     artifact = joblib.load(model_path)
     model_features = artifact.get("features", [])
     if not set(model_features).issubset(MODEL_FEATURES):
@@ -139,6 +152,11 @@ def publish_forecast(hourly_path: Path, model_path: Path, output: Path, lineage_
         "production_model": model_path.as_posix(), "production_model_sha256": sha256_file(model_path),
         "output": output.as_posix(), "output_sha256": sha256_file(output), "gate": gate,
         "previous_release_archive": archived.as_posix() if archived else None,
+        "publication_approval": {
+            "reviewer": approval["reviewer"],
+            "approved_at": approval["approved_at"],
+            "model_sha256": approval["artifact_sha256"],
+        },
     }
     lineage_output.parent.mkdir(parents=True, exist_ok=True)
     lineage_output.write_text(json.dumps(lineage, indent=2) + "\n", encoding="utf-8")
@@ -162,10 +180,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lineage", type=Path, default=Path("data/processed/lineage/hourly_zone_demand_forecast.json"))
     parser.add_argument("--gate-output", type=Path, default=Path("data/processed/quality/forecast-gate.json"))
     parser.add_argument("--horizon", type=int, default=24)
+    parser.add_argument("--approval-file", type=Path, required=True)
     args = parser.parse_args(argv)
     if not 1 <= args.horizon <= 168:
         raise SystemExit("horizon must be between 1 and 168 hours")
-    print(json.dumps(publish_forecast(args.input, args.model, args.output, args.lineage, args.gate_output, horizon=args.horizon), indent=2))
+    print(json.dumps(publish_forecast(
+        args.input, args.model, args.output, args.lineage, args.gate_output,
+        horizon=args.horizon, approval_file=args.approval_file,
+    ), indent=2))
     return 0
 
 

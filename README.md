@@ -4,6 +4,8 @@ A reproducible urban-mobility data platform that turns governed NYC TLC trip
 records into auditable demand analytics, leakage-safe model evaluation, and
 bounded next-day zone-hour forecasts.
 
+[![AgentGov](https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/actions/workflows/agentgov.yml/badge.svg)](https://github.com/Andy-JunXiong/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/actions/workflows/agentgov.yml)
+
 [![NYC Taxi Intelligence — from 100M+ records to a governed decision system](showcase/public/og.png)](https://andy-junxiong.github.io/NYC-Taxi-Demand-And-Fare-Intelligence-Platform/)
 
 <p align="center">
@@ -211,7 +213,31 @@ scheduling, and the small-data CI workflow are documented in
 Repository-native AI/ML governance for the hourly zone-demand forecast is
 configured under `governance/` and `evaluation/`. The dated human decisions and
 environment work still outstanding are tracked in
-[`docs/governance-todo.md`](docs/governance-todo.md).
+[`docs/governance-todo.md`](docs/governance-todo.md). The
+[2026-08-02 development record](docs/development-log/2026-08-02.md) separates
+today's completed work from external operations, and the
+[remaining development plan](docs/development-plan.md) orders the next slices.
+
+### AgentGov governance visibility
+
+AgentGov turns those repository files into an executable, review-visible contract:
+
+- [governance/capabilities/nyc-hourly-zone-demand-forecast.json](governance/capabilities/nyc-hourly-zone-demand-forecast.json) declares the governed capability, owner, risk, callers, and evidence.
+- [governance/controls/nyc-hourly-zone-demand-forecast.json](governance/controls/nyc-hourly-zone-demand-forecast.json) maps applicable controls and their evidence.
+- [evaluation/](evaluation/) holds evaluation readiness and reviewed evidence rather than runtime model output.
+- [.github/workflows/agentgov.yml](.github/workflows/agentgov.yml) runs the published AgentGov release on every pull request and push, writes the Markdown result to the GitHub Actions job summary, and uploads JSON, Markdown, and update-state artifacts.
+
+Run the same deterministic repository validation locally with:
+
+```powershell
+agentgov check repository .
+agentgov report repository . --format markdown --output agentgov-report.md
+```
+
+With the workflow present, broken governance references, invalid contracts, and
+readiness regressions become visible during code review instead of depending on a
+maintainer remembering a manual command. Advisory findings remain advisory, and
+AgentGov does not approve evidence, merge changes, release, or deploy the platform.
 
 ### Sydney localisation
 

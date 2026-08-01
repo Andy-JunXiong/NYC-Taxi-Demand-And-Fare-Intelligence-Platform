@@ -23,9 +23,18 @@ Statuses are `running`, `completed`, `blocked`, or `failed`. A quality/model/dri
 ```powershell
 python -m src.nyc_taxi.operations monthly --start 2025-02 --end 2025-02
 python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
-python -m src.nyc_taxi.operations forecast --horizon 24
+python -m src.nyc_taxi.operations forecast --horizon 24 --approval-file <path>
 python -m src.nyc_taxi.operations monitor
 ```
+
+Model validation writes `candidate.joblib` but does not replace production.
+Promotion requires a JSON approval record with `schema_version: "1.0"`,
+`action: "model_promotion"`, `approved: true`, a named `reviewer`, an ISO-8601
+`approved_at` containing a UTC offset, and the candidate `artifact_sha256`;
+pass its path using `--approval-file`. Promotion atomically copies the exact
+approved candidate bytes into production. Forecast publication requires a
+separate record with action `forecast_publication` bound to the current
+production model SHA-256.
 
 ## Failure recovery
 
@@ -40,7 +49,10 @@ python -m src.nyc_taxi.operations monitor
 
 `.github/workflows/operations.yml` provides monthly scheduled and manually dispatched production workflows. It intentionally targets a persistent self-hosted Windows runner labeled `nyc-taxi`; GitHub-hosted ephemeral runners do not retain the multi-gigabyte governed lake or production model between runs.
 
-The scheduled run processes the previous month, then executes model validation, forecast publication, and monitoring in order. Concurrency is limited to one production workflow and running jobs are never cancelled by a newer trigger.
+The scheduled run processes the previous month and executes model validation,
+then stops at the human promotion checkpoint. Forecast publication and
+monitoring are separately dispatched. Concurrency is limited to one production
+workflow and running jobs are never cancelled by a newer trigger.
 
 External setup required once: register the machine as a GitHub Actions self-hosted runner and add the `nyc-taxi` label. No API secret is required for public TLC downloads.
 

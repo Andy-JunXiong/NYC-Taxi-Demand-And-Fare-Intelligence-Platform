@@ -37,7 +37,7 @@
     "reason": "Static checks and deterministic quality gates provide evidence but cannot authorize production execution, artifact replacement, deployment, or scheduling."
   },
   "evaluation": {
-    "readiness": "needs_seed_cases",
+    "readiness": "baseline_ready",
     "evidence_refs": [
       "evaluation/nyc-hourly-zone-demand-forecast/evaluation-manifest.json"
     ]

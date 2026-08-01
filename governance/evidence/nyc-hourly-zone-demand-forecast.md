@@ -41,8 +41,11 @@ runs.
   evaluation and approved replacement.
 - `tests/test_prediction.py` exercises grid, validity, and routing gates.
 
-The AgentGov evaluation bundle begins with draft synthetic cases. They require
-maintainer review before the readiness level can advance.
+The AgentGov evaluation bundle has a maintainer-approved first baseline. It
+contains reviewed complete-grid and JFK/LaGuardia routing seeds, an approved
+complete-grid golden example, and a reviewed negative-prediction failure case
+whose regression test verifies that a rejected publication does not replace
+the existing forecast product or lineage.
 
 ## Approval and escalation boundary
 
@@ -50,14 +53,14 @@ AgentGov checks validate repository declarations and references only. Passing
 them does not authorize model release, forecast publication, deployment,
 scheduling, or external mutation.
 
-The current implementation has a deterministic release path:
-`rolling_backtest` replaces `production.joblib` when all model gates pass, and
-the scheduled operations workflow can then publish a forecast. It does not
-implement a separate per-release human approval checkpoint. Adding such a
-runtime or workflow gate is an unresolved architecture decision and requires
-explicit maintainer approval before changing `src/nyc_taxi/model_validation.py`
-or `.github/workflows/operations.yml`.
+The deterministic model gate produces `candidate.joblib` but does not itself
+authorize promotion. Replacing `production.joblib` requires a separate
+`model_promotion` approval record naming a reviewer and binding approval to the
+candidate SHA-256. Forecast publication separately requires a
+`forecast_publication` approval bound to the production model SHA-256. Scheduled
+operations stop after validation and cannot automatically cross either human
+checkpoint.
 
-The dated review queue for this decision, evaluation readiness, Python
-environment repair, and capability artifacts is maintained in
+The dated review queue for evaluation readiness, Python environment repair, and
+capability artifacts is maintained in
 `docs/governance-todo.md`.

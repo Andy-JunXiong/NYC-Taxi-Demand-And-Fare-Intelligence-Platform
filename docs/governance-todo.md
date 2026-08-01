@@ -4,22 +4,20 @@
 
 - Target date: 2026-07-25
 - Owner: NYC Taxi platform maintainers
-- Status: Open
+- Status: In progress
 
 ## Decisions and work remaining
 
-1. Decide whether production model promotion and forecast publication require a
-   separate human approval checkpoint. The current implementation promotes
-   `production.joblib` after deterministic model gates pass, and the scheduled
-   operations workflow can continue directly to forecast publication.
-2. Review the three draft seed cases under
-   `evaluation/nyc-hourly-zone-demand-forecast/seed-cases/`. Keep
-   `needs_seed_cases` until reviewed seed evidence, an approved golden example,
-   a reviewed failure case, and baseline approval exist.
-3. Select and declare the supported local Python version. CI uses Python 3.11;
-   the available local interpreter is Python 3.12, and the existing `.venv`
-   points to an unavailable Python 3.13 installation. Rebuild side by side
-   rather than deleting or overwriting the existing environment.
+1. **Resolved 2026-07-25:** production model promotion and forecast publication
+   require separate human approval records bound to the exact artifact checksum.
+   Scheduled operations stop after model validation.
+2. **Resolved 2026-08-01:** the complete-grid and JFK/LaGuardia routing seeds
+   are reviewed, the complete-grid golden example is approved, and the
+   negative-prediction failure case has a publication-preservation regression
+   test. The first evaluation baseline is recorded as `baseline_ready`.
+3. **Resolved 2026-08-01:** Python 3.11 is declared in `.python-version`,
+   matching CI, and the test suite has been verified in a side-by-side Python
+   3.11.9 environment. The existing `.venv` was preserved.
 4. Decide whether to configure tracked capability artifacts and whether the
    empty declared capability-dependency graph is complete.
 

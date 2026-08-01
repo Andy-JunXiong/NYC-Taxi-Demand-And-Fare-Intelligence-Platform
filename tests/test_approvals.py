@@ -1,0 +1,96 @@
+import json
+from hashlib import sha256
+from pathlib import Path
+
+import pytest
+
+from nyc_taxi.approvals import promote_approved_artifact, require_approval
+
+
+def write_approval(path: Path, **overrides) -> None:
+    approval = {
+        "schema_version": "1.0",
+        "action": "model_promotion",
+        "approved": True,
+        "reviewer": "NYC Taxi maintainer",
+        "approved_at": "2026-07-25T10:00:00+10:00",
+        "artifact_sha256": "abc123",
+    }
+    approval.update(overrides)
+    path.write_text(json.dumps(approval), encoding="utf-8")
+
+
+def test_approval_must_match_action_and_artifact(tmp_path: Path):
+    path = tmp_path / "approval.json"
+    write_approval(path)
+    result = require_approval(path, action="model_promotion", artifact_sha256="abc123")
+    assert result["reviewer"] == "NYC Taxi maintainer"
+
+    with pytest.raises(PermissionError, match="target artifact"):
+        require_approval(path, action="model_promotion", artifact_sha256="different")
+    with pytest.raises(PermissionError, match="does not approve"):
+        require_approval(path, action="forecast_publication", artifact_sha256="abc123")
+
+
+def test_approval_requires_named_reviewer(tmp_path: Path):
+    path = tmp_path / "approval.json"
+    write_approval(path, reviewer="")
+    with pytest.raises(PermissionError, match="named reviewer"):
+        require_approval(path, action="model_promotion", artifact_sha256="abc123")
+
+
+def test_missing_approval_is_rejected(tmp_path: Path):
+    with pytest.raises(PermissionError, match="not found"):
+        require_approval(
+            tmp_path / "missing.json",
+            action="model_promotion",
+            artifact_sha256="abc123",
+        )
+
+
+def test_approval_timestamp_requires_utc_offset(tmp_path: Path):
+    path = tmp_path / "approval.json"
+    write_approval(path, approved_at="2026-07-25T10:00:00")
+    with pytest.raises(PermissionError, match="UTC offset"):
+        require_approval(path, action="model_promotion", artifact_sha256="abc123")
+
+
+def test_promotion_copies_exact_approved_candidate(tmp_path: Path):
+    candidate = tmp_path / "candidate.joblib"
+    production = tmp_path / "production.joblib"
+    approval_file = tmp_path / "approval.json"
+    candidate_bytes = b"approved candidate bytes"
+    candidate.write_bytes(candidate_bytes)
+    production.write_bytes(b"previous production bytes")
+    write_approval(approval_file, artifact_sha256=sha256(candidate_bytes).hexdigest())
+
+    approval = promote_approved_artifact(
+        candidate,
+        production,
+        approval_file,
+        action="model_promotion",
+    )
+
+    assert production.read_bytes() == candidate_bytes
+    assert approval["reviewer"] == "NYC Taxi maintainer"
+    assert not (tmp_path / "production.joblib.part").exists()
+
+
+def test_failed_promotion_preserves_existing_production(tmp_path: Path):
+    candidate = tmp_path / "candidate.joblib"
+    production = tmp_path / "production.joblib"
+    approval_file = tmp_path / "approval.json"
+    candidate.write_bytes(b"new candidate")
+    production.write_bytes(b"current production")
+    write_approval(approval_file, artifact_sha256="wrong-checksum")
+
+    with pytest.raises(PermissionError, match="target artifact"):
+        promote_approved_artifact(
+            candidate,
+            production,
+            approval_file,
+            action="model_promotion",
+        )
+
+    assert production.read_bytes() == b"current production"
+    assert not (tmp_path / "production.joblib.part").exists()

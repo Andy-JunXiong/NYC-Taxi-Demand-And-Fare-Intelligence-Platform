@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "negative-prediction-blocked",
+  "capability_name": "nyc-hourly-zone-demand-forecast",
+  "input": {
+    "pickup_zone_id": 1,
+    "predicted_trip_count": -1.0,
+    "existing_published_product": true
+  },
+  "observed_failure": "A synthetic forecast frame contains a negative predicted trip count before publication.",
+  "expected_behavior": "The publication gate must fail before replacing the existing forecast product or lineage.",
+  "regression_assertion": {
+    "pytest_nodeid": "tests/test_prediction.py::test_negative_prediction_does_not_replace_published_product",
+    "expected_exception": "RuntimeError",
+    "existing_forecast_unchanged": true,
+    "existing_lineage_unchanged": true
+  },
+  "risk_level": "medium",
+  "source": {
+    "source_type": "hand_constructed",
+    "reference": "tests/test_prediction.py::test_negative_prediction_does_not_replace_published_product",
+    "sanitized": true
+  },
+  "review_status": "reviewed"
+}

@@ -80,9 +80,15 @@ def run_workflow(command: str, args) -> dict:
             state["gold_checksum"] = sha256_file(Path("data/processed/hourly_zone_demand.parquet"))
             state["gate_status"] = "passed"
         elif command == "model":
-            result = rolling_backtest(Path("data/processed/hourly_zone_demand.parquet"), Path("models/demand_release"), first_test=args.first_test, max_iter=args.max_iter)
+            result = rolling_backtest(
+                Path("data/processed/hourly_zone_demand.parquet"),
+                Path("models/demand_release"),
+                first_test=args.first_test,
+                max_iter=args.max_iter,
+                approval_file=args.approval_file,
+            )
             state["gate_status"] = "passed" if result["release_gate"]["passed"] else "failed"
-            if result["release_gate"]["passed"]:
+            if result["promotion"]["status"] == "promoted":
                 state["model_checksum"] = sha256_file(Path("models/demand_release/production.joblib"))
             else:
                 state["status"] = "blocked"
@@ -91,7 +97,9 @@ def run_workflow(command: str, args) -> dict:
                 Path("data/processed/hourly_zone_demand.parquet"), Path("models/demand_release/production.joblib"),
                 Path("data/processed/forecasts/hourly_zone_demand_forecast.parquet"),
                 Path("data/processed/lineage/hourly_zone_demand_forecast.json"),
-                Path("data/processed/quality/forecast-gate.json"), horizon=args.horizon,
+                Path("data/processed/quality/forecast-gate.json"),
+                horizon=args.horizon,
+                approval_file=args.approval_file,
             )
             state["gate_status"] = "passed"
             state["forecast_checksum"] = result["output_sha256"]
@@ -120,8 +128,10 @@ def main(argv: list[str] | None = None) -> int:
     model = sub.add_parser("model")
     model.add_argument("--first-test", default="2024-07")
     model.add_argument("--max-iter", type=int, default=60)
+    model.add_argument("--approval-file", type=Path)
     forecast = sub.add_parser("forecast")
     forecast.add_argument("--horizon", type=int, default=24)
+    forecast.add_argument("--approval-file", type=Path, required=True)
     sub.add_parser("monitor")
     args = parser.parse_args(argv)
     result = run_workflow(args.command, args)

@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 
+from .approvals import promote_approved_artifact
+from .download import sha256_file
 from .forecast import AIRPORT_ZONE_IDS, MODEL_FEATURES, load_hourly, make_feature_table, metrics
 
 
@@ -75,7 +77,14 @@ def _previous_year_prediction(rows: pd.DataFrame, history: pd.DataFrame) -> np.n
     return keys.merge(prior, on=["pickup_zone_id", "comparison_hour"], how="left")["previous_year"].fillna(0).to_numpy()
 
 
-def rolling_backtest(hourly_path: Path, output_dir: Path, *, first_test: str = "2024-07", max_iter: int = 60) -> dict:
+def rolling_backtest(
+    hourly_path: Path,
+    output_dir: Path,
+    *,
+    first_test: str = "2024-07",
+    max_iter: int = 60,
+    approval_file: Path | None = None,
+) -> dict:
     features = make_feature_table(load_hourly(hourly_path))
     periods = features["pickup_hour"].dt.to_period("M")
     test_periods = [period for period in sorted(periods.unique()) if period >= pd.Period(first_test)]
@@ -141,7 +150,6 @@ def rolling_backtest(hourly_path: Path, output_dir: Path, *, first_test: str = "
     decision = release_decision(folds)
     report = {"generated_at": datetime.now(timezone.utc).isoformat(), "folds": folds, "release_gate": decision}
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "rolling_backtest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     final_global, final_airport, final_event = _model(max_iter), _model(max_iter), _model(max_iter)
     final_global.fit(features[MODEL_FEATURES], features["trip_count"])
@@ -161,10 +169,27 @@ def rolling_backtest(hourly_path: Path, output_dir: Path, *, first_test: str = "
     }
     candidate_path = output_dir / "candidate.joblib"
     joblib.dump(artifact, candidate_path)
+    report["promotion"] = {"status": "blocked", "reason": "release_gate_failed"}
     if decision["passed"]:
-        temporary = output_dir / "production.joblib.part"
-        joblib.dump(artifact, temporary)
-        temporary.replace(output_dir / "production.joblib")
+        report["promotion"] = {
+            "status": "awaiting_human_approval",
+            "candidate_sha256": sha256_file(candidate_path),
+        }
+    (output_dir / "rolling_backtest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if decision["passed"] and approval_file is not None:
+        approval = promote_approved_artifact(
+            candidate_path,
+            output_dir / "production.joblib",
+            approval_file,
+            action="model_promotion",
+        )
+        report["promotion"] = {
+            "status": "promoted",
+            "reviewer": approval["reviewer"],
+            "approved_at": approval["approved_at"],
+            "candidate_sha256": approval["artifact_sha256"],
+        }
+    (output_dir / "rolling_backtest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
 
@@ -174,8 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("models/demand_release"))
     parser.add_argument("--first-test", default="2024-07")
     parser.add_argument("--max-iter", type=int, default=60)
+    parser.add_argument("--approval-file", type=Path)
     args = parser.parse_args(argv)
-    report = rolling_backtest(args.input, args.output_dir, first_test=args.first_test, max_iter=args.max_iter)
+    report = rolling_backtest(
+        args.input, args.output_dir, first_test=args.first_test, max_iter=args.max_iter,
+        approval_file=args.approval_file,
+    )
     print(json.dumps(report, indent=2))
     return 0 if report["release_gate"]["passed"] else 2
 
