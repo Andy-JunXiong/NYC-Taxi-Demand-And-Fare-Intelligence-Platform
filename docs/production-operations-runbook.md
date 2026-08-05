@@ -34,7 +34,9 @@ Promotion requires a JSON approval record with `schema_version: "1.0"`,
 pass its path using `--approval-file`. Promotion atomically copies the exact
 approved candidate bytes into production. Forecast publication requires a
 separate record with action `forecast_publication` bound to the current
-production model SHA-256.
+production model SHA-256. Start from the inert, checked
+[`approval-record-template.json`](approval-record-template.json) and follow the
+field guidance in [`approval-records.md`](approval-records.md).
 
 ## Failure recovery
 

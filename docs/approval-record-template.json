@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "action": "REPLACE_WITH_ACTION",
+  "approved": false,
+  "reviewer": "REPLACE_WITH_REVIEWER_NAME",
+  "approved_at": "REPLACE_WITH_ISO_8601_TIMESTAMP_WITH_UTC_OFFSET",
+  "artifact_sha256": "REPLACE_WITH_64_CHARACTER_SHA256"
+}

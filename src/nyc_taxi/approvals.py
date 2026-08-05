@@ -13,7 +13,12 @@ from .download import sha256_file
 def require_approval(path: Path, *, action: str, artifact_sha256: str) -> dict:
     if not path.is_file():
         raise PermissionError(f"Human approval record not found: {path}")
-    approval = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        approval = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PermissionError(f"Human approval record is unreadable or invalid JSON: {path}") from exc
+    if not isinstance(approval, dict):
+        raise PermissionError("Human approval record must be a JSON object")
     required = {"schema_version", "action", "approved", "reviewer", "approved_at", "artifact_sha256"}
     missing = required.difference(approval)
     if missing:
@@ -48,9 +53,12 @@ def promote_approved_artifact(
         artifact_sha256=candidate_sha256,
     )
     temporary = production_path.with_name(f"{production_path.name}.part")
-    shutil.copyfile(candidate_path, temporary)
-    if sha256_file(temporary) != candidate_sha256:
+    try:
+        shutil.copyfile(candidate_path, temporary)
+        if sha256_file(temporary) != candidate_sha256:
+            raise OSError("Promoted artifact copy does not match the approved candidate")
+        temporary.replace(production_path)
+    except Exception:
         temporary.unlink(missing_ok=True)
-        raise OSError("Promoted artifact copy does not match the approved candidate")
-    temporary.replace(production_path)
+        raise
     return approval

@@ -1,21 +1,24 @@
 # NYC Taxi remaining development plan
 
-Updated 2026-08-02. Completed work stays in the development record; this page
+Updated 2026-08-05. Completed work stays in the development record; this page
 contains the ordered work that remains.
 
 ## P0 — close the approval-gate slice
 
-1. Add a documented approval-record schema or checked template for
-   `model_promotion` and `forecast_publication`.
-2. Add integration tests around `rolling_backtest` for the awaiting, approved,
-   checksum-mismatch, and failed-model-gate paths.
-3. Verify workflow-dispatch behavior on the self-hosted Windows runner without
+The non-core closure completed on 2026-08-05: the repository now has an inert,
+checked approval template; `rolling_backtest` integration coverage for the
+awaiting, approved, checksum-mismatch, and failed-model-gate paths; and
+regressions proving malformed JSON and interrupted copies preserve production
+and remove partial files.
+
+1. Decide and document where original approval files are retained outside Git.
+   The run ledger and forecast lineage retain reviewer, timestamp, action
+   context, and artifact digest metadata, but no policy currently names the
+   authoritative retention location for the original JSON record.
+2. Verify workflow-dispatch behavior on the self-hosted Windows runner without
    executing production publication.
-4. Confirm that approval files are retained as auditable evidence without
-   storing credentials, private data, generated models, or runtime outputs in
-   Git.
-5. Review error handling for malformed JSON and filesystem failures so an
-   interrupted promotion cannot leave an ambiguous production artifact.
+3. If either remaining check requires a core-file change, obtain specific human
+   approval for the proposed files and validation plan before editing.
 
 Acceptance signals:
 
