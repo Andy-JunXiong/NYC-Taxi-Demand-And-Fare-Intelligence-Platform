@@ -306,7 +306,7 @@ The full dataset is large. Expect substantial memory use and long execution time
 - Legacy `plotly.plotly` imports have been replaced with Plotly's offline interface. Some older chart calls may still require adjustment on current releases.
 - Deprecated Random Forest `max_features='auto'` values have been replaced with `1.0`, the equivalent regressor behavior in current scikit-learn.
 - `Taxi-NYC-Question-8-To-10.ipynb` creates a local Spark context, although most of the analysis is performed with pandas.
-- The repository now includes dependency ranges and portable data paths, but it does not yet include automated tests or a fully locked environment.
+- The repository now includes dependency ranges and portable data paths, but it does not yet include a fully locked environment.
 
 ## Methodological limitations
 
