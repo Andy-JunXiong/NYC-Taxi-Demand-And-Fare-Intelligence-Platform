@@ -1,7 +1,31 @@
 # NYC Taxi remaining development plan
 
-Updated 2026-08-05. Completed work stays in the development record; this page
+Updated 2026-08-09. Completed work stays in the development record; this page
 contains the ordered work that remains.
+
+## Product delivery status
+
+The project is a governed pre-production MVP preparing for an operational
+pilot, not a continuously scheduled production service.
+
+- Product Phase 1, repository closeout: implementation and local validation are
+  complete. Version-control closeout remains pending because commit and push
+  require separate human instructions.
+- Product Phase 2, continuous demand-data staging: complete locally for all 53
+  months from 2022-01 through 2026-05. The demand quality gate passed every
+  partition. Negative-fare warnings for 2025-01 through 2025-11 are
+  non-blocking for demand and remain open for any future fare product.
+- Product Phase 3, controlled release: the 22-fold staging backtest passed all
+  release checks. Candidate SHA-256
+  `00a1d628acc7e53d527ddd9be23cb664eb8098def9dd433408e176cd407c5eae`
+  remains in `awaiting_human_approval`; it has not been promoted or published.
+
+The next product decision is whether an authenticated human approves promotion
+of that exact candidate. If approved, forecast generation for 2026-05-01,
+forecast publication, and monitoring against May actuals remain distinct steps;
+publication requires its own approval bound to the promoted model SHA. The
+evidence and exact stop point are recorded in
+[`development-log/2026-08-09.md`](development-log/2026-08-09.md).
 
 ## P0 — close the approval-gate slice
 

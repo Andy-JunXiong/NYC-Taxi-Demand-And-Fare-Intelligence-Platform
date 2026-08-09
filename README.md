@@ -20,7 +20,10 @@ bounded next-day zone-hour forecasts.
 > supports planning and technical review; it is not live dispatch advice or a
 > claim about all NYC mobility.
 
-## Results at a glance
+## Published results at a glance
+
+These figures describe the currently published portfolio evidence, not an
+authorization to use later local staging artifacts in production.
 
 | Product evidence | Result |
 | --- | ---: |
@@ -61,6 +64,19 @@ The forecast supports next-day fleet-capacity planning and analyst review at the
 Taxi Zone × hour level. It does not assign individual vehicles, guarantee
 revenue, infer causal demand drivers, or represent rideshare, transit, walking,
 cycling, and every NYC traveller.
+
+## Current project stage
+
+The repository is a governed pre-production MVP preparing for an operational
+pilot. The implemented pipeline, model gates, approval controls, publication,
+monitoring, and recovery behavior are tested, but no continuously scheduled
+service or live forecast API is claimed.
+
+The latest local staging run is recorded in
+[`docs/development-log/2026-08-09.md`](docs/development-log/2026-08-09.md). It
+closes the monthly demand-data gap through May 2026 and produces a release-gate
+passing model candidate trained through April 2026. That candidate remains
+unpromoted and unpublished pending separate human approvals.
 
 ## Repository map
 
@@ -252,19 +268,23 @@ Setup, source limitations, credentials, and commands are documented in
 
 ### 1. Create an environment
 
-The notebooks were originally written against an older Python data-science stack. A practical starting environment is:
+The tested production modules require Python 3.11, as declared in
+`.python-version`. Create a matching environment:
 
 ```bash
-python -m venv .venv
+python3.11 -m venv .venv
 ```
 
-Activate it, then install the declared dependencies:
+Activate it, then install the reproducible core development and test environment:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ```
 
-The requirements use bounded version ranges rather than a fully locked environment. Exact output may still vary between supported package versions.
+`requirements-dev.txt` declares the supported core ranges and applies
+`requirements-dev.lock.txt` as exact constraints. The broader `requirements.txt`
+retains optional historical notebook, Jupyter, and Spark tooling and is not the
+CI test-environment definition.
 
 ### 2. Download and extract the data
 
@@ -306,25 +326,33 @@ The full dataset is large. Expect substantial memory use and long execution time
 - Legacy `plotly.plotly` imports have been replaced with Plotly's offline interface. Some older chart calls may still require adjustment on current releases.
 - Deprecated Random Forest `max_features='auto'` values have been replaced with `1.0`, the equivalent regressor behavior in current scikit-learn.
 - `Taxi-NYC-Question-8-To-10.ipynb` creates a local Spark context, although most of the analysis is performed with pandas.
-- The repository now includes dependency ranges and portable data paths, but it does not yet include a fully locked environment.
+- The tested core environment is constrained by `requirements-dev.lock.txt`;
+  optional historical notebook tooling remains a separate, broader environment.
 
 ## Methodological limitations
 
 - The data contains invalid coordinates, implausible passenger counts, zero-distance/zero-duration trips, and extreme fare, speed, and distance values.
 - Rule-based outlier removal can discard legitimate rare trips and influence model performance.
-- The train/test split is random rather than time-based, so it does not measure performance under temporal drift.
+- The legacy notebooks use random train/test splits; the current demand model
+  uses chronological expanding-window evaluation, but future drift is still a
+  production monitoring concern.
 - Taxi demand, fares, regulations, traffic, and passenger behavior have changed since 2013.
 - RMSE alone does not reveal performance differences by borough, time period, airport trip, or fare range.
 - The earning recommendations do not fully model idle time, fuel, tolls, maintenance, driver availability, repositioning costs, or competition between vehicles.
 
 ## Suggested next steps
 
-- Add a fully locked environment and a small, legally redistributable sample dataset for reproducible execution.
-- Convert repeated notebook logic into tested Python modules and a command-line pipeline.
-- Replace the legacy `gmaps` widget integration with a maintained map visualization approach.
-- Use time-aware validation and compare gradient boosting models such as XGBoost, LightGBM, or HistGradientBoosting.
-- Evaluate MAE and segment-level errors alongside RMSE.
-- Rebuild the analysis on current NYC TLC trip records and taxi-zone identifiers.
+- Review the exact April 2026 model candidate and, only with a separate approval
+  bound to its SHA-256, decide whether to promote it.
+- If promotion is approved, generate the May 1 forecast in staging, obtain a
+  separate publication approval, and close the forecast against existing May
+  actuals.
+- Investigate the non-blocking 2025 negative-fare warnings before treating fare
+  intelligence as an operational product.
+- Complete the Sydney evidence requirement with at least two distinct governed
+  historical captures before considering its release gate complete.
+- Verify the persistent runner and checkout-external approval retention path
+  before authorizing scheduled operations.
 
 ## License
 
