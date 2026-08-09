@@ -2,19 +2,19 @@
 
 ## Published product
 
-The production inference job creates a recursive 24-hour forecast for every governed Taxi Zone. JFK (132) and LaGuardia (138) are automatically routed to the approved airport specialist; all other zones use the global model.
+The production inference job creates a recursive 24-hour forecast for every governed Taxi Zone. JFK (132) and LaGuardia (138) are automatically routed to the airport specialist. Non-airport zones in an event window use the event specialist when the approved model artifact includes one; all remaining zones use the global model.
 
 The first published run covers 2025-01-01 00:00–23:00: 263 zones, 24 hours, and 6,312 unique rows. Each row contains forecast generation time, forecast hour, pickup zone, predicted trips, model type, and model version.
 
 ```powershell
-python -m src.nyc_taxi.prediction
+python -m src.nyc_taxi.prediction --approval-file <forecast-approval.json>
 ```
 
 The product is written to `data/processed/forecasts/hourly_zone_demand_forecast.parquet`. Its lineage records Gold and model checksums, output checksum, horizon, coverage, and gate decision.
 
 ## Publication gates
 
-A run is published only when it has the exact Zone×hour grid, unique keys, no missing or negative predictions, and correct airport/global model routing. The Parquet file is written to a temporary path and replaces the published product only after every check passes.
+A run is published only when it has the exact Zone×hour grid, unique keys, no missing or negative predictions, and correct airport/event/global model routing. The Parquet file is written to a temporary path and replaces the published product only after every check passes.
 
 ## Monitoring
 
