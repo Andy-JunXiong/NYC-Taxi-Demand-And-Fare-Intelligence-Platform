@@ -11,12 +11,17 @@ awaiting, approved, checksum-mismatch, and failed-model-gate paths; and
 regressions proving malformed JSON and interrupted copies preserve production
 and remove partial files.
 
-1. Decide and document where original approval files are retained outside Git.
-   The run ledger and forecast lineage retain reviewer, timestamp, action
-   context, and artifact digest metadata, but no policy currently names the
-   authoritative retention location for the original JSON record.
+The retention-location decision was documented on 2026-08-09. Exact approval
+record bytes are retained outside the repository checkout under
+`C:\ProgramData\NYCTaxi\approval-records\`, with pending, consumed, and rejected
+states linked to the operational ledger run ID. This documentation does not
+create the directory, change its permissions, or authorize an external action.
+
+1. When self-hosted runner setup is separately authorized, create the approved
+   retention root and apply the documented Windows filesystem permissions.
 2. Verify workflow-dispatch behavior on the self-hosted Windows runner without
-   executing production publication.
+   executing production publication, including safe handling of the
+   checkout-external approval path.
 3. If either remaining check requires a core-file change, obtain specific human
    approval for the proposed files and validation plan before editing.
 
@@ -25,7 +30,8 @@ Acceptance signals:
 - only the exact approved bytes can replace production;
 - rejected or interrupted operations preserve the prior artifact;
 - the workflow exposes a clear blocked status and never silently continues;
-- approval evidence is attributable and contains no secret.
+- approval evidence is attributable, contains no secret, retains its exact
+  original bytes, and is not reused after a final run state.
 
 ## P1 — finish declared governance coverage
 

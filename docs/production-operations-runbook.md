@@ -38,6 +38,23 @@ production model SHA-256. Start from the inert, checked
 [`approval-record-template.json`](approval-record-template.json) and follow the
 field guidance in [`approval-records.md`](approval-records.md).
 
+### Approval record retention
+
+Production approval records are retained under
+`C:\ProgramData\NYCTaxi\approval-records\` using the pending, consumed, and
+rejected lifecycle defined in [`approval-records.md`](approval-records.md). Run
+production actions through `src.nyc_taxi.operations` so the final record can be
+associated with its operational ledger `run_id`. After the command reaches a
+final state, a named operator moves the unchanged record from `pending/` to the
+matching `consumed/` or `rejected/` run directory. Archived records are not
+reusable approvals.
+
+The workflow-dispatch input is currently described as a repository-relative
+path. Use of the approved checkout-external root through the self-hosted workflow
+has not yet been verified. Do not use that dispatch path for model promotion or
+forecast publication until a separately authorized verification confirms safe
+path handling without executing a production write.
+
 ## Failure recovery
 
 - Downloads retain `.part` files and resume with an HTTP Range request. A server that does not support Range causes a safe full-file restart.
