@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sqlite3
 import traceback
 import uuid
@@ -11,6 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .approvals import promote_approved_artifact, require_approval
 from .download import parse_month, sha256_file
 from .model_validation import rolling_backtest
 from .monitoring import monitor
@@ -19,6 +21,8 @@ from .prediction import publish_forecast
 
 
 LEDGER_PATH = Path("data/processed/operations/runs.sqlite")
+PRODUCTION_MODEL_PATH = Path("models/demand_release/production.joblib")
+MODEL_ARCHIVE_ROOT = Path("models/demand_release/archive")
 
 
 def _now() -> str:
@@ -73,6 +77,95 @@ def record_run(pipeline: str, *, period_start: str | None = None, period_end: st
         connection.close()
 
 
+def validate_promotion_evidence(candidate_path: Path, report_path: Path) -> str:
+    """Verify that a release-gate-passing report names the exact candidate."""
+    if not candidate_path.is_file():
+        raise PermissionError(f"Model candidate not found: {candidate_path}")
+    if not report_path.is_file():
+        raise PermissionError(f"Model release report not found: {report_path}")
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PermissionError(f"Model release report is unreadable or invalid JSON: {report_path}") from exc
+    if not isinstance(report, dict):
+        raise PermissionError("Model release report must be a JSON object")
+    if report.get("release_gate", {}).get("passed") is not True:
+        raise PermissionError("Model release report does not contain a passing release gate")
+    candidate_sha256 = sha256_file(candidate_path)
+    promotion = report.get("promotion")
+    if not isinstance(promotion, dict) or promotion.get("status") != "awaiting_human_approval":
+        raise PermissionError("Model release report is not awaiting human approval")
+    if promotion.get("candidate_sha256") != candidate_sha256:
+        raise PermissionError("Model release report does not match the candidate artifact")
+    return candidate_sha256
+
+
+def archive_current_model(production_path: Path, archive_root: Path) -> tuple[str | None, Path | None]:
+    """Atomically retain the exact current production bytes before replacement."""
+    if not production_path.is_file():
+        return None, None
+    previous_sha256 = sha256_file(production_path)
+    archive_path = archive_root / f"{previous_sha256}.joblib"
+    if archive_path.exists():
+        if not archive_path.is_file() or sha256_file(archive_path) != previous_sha256:
+            raise OSError(f"Existing model archive does not match production: {archive_path}")
+        return previous_sha256, archive_path
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = archive_path.with_name(f"{archive_path.name}.part")
+    temporary.unlink(missing_ok=True)
+    try:
+        shutil.copyfile(production_path, temporary)
+        if sha256_file(temporary) != previous_sha256:
+            raise OSError("Archived model copy does not match current production")
+        temporary.replace(archive_path)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return previous_sha256, archive_path
+
+
+def promote_existing_candidate(
+    candidate_path: Path,
+    report_path: Path,
+    approval_file: Path,
+    *,
+    production_path: Path,
+    archive_root: Path,
+) -> dict:
+    """Promote one reviewed candidate while preserving the prior production bytes."""
+    candidate_sha256 = validate_promotion_evidence(candidate_path, report_path)
+    require_approval(
+        approval_file,
+        action="model_promotion",
+        artifact_sha256=candidate_sha256,
+    )
+    previous_sha256, archive_path = archive_current_model(production_path, archive_root)
+    if previous_sha256 is not None and sha256_file(production_path) != previous_sha256:
+        raise OSError("Production model changed while it was being archived")
+    production_path.parent.mkdir(parents=True, exist_ok=True)
+    approval = promote_approved_artifact(
+        candidate_path,
+        production_path,
+        approval_file,
+        action="model_promotion",
+    )
+    production_sha256 = sha256_file(production_path)
+    if production_sha256 != candidate_sha256:
+        raise OSError("Production model does not match the approved candidate after promotion")
+    return {
+        "status": "promoted",
+        "candidate_path": candidate_path.as_posix(),
+        "report_path": report_path.as_posix(),
+        "production_path": production_path.as_posix(),
+        "candidate_sha256": candidate_sha256,
+        "previous_model_sha256": previous_sha256,
+        "production_model_sha256": production_sha256,
+        "archive_path": archive_path.as_posix() if archive_path is not None else None,
+        "reviewer": approval["reviewer"],
+        "approved_at": approval["approved_at"],
+    }
+
+
 def run_workflow(command: str, args) -> dict:
     with record_run(command, period_start=getattr(args, "start", None) and str(args.start)[:7], period_end=getattr(args, "end", None) and str(args.end)[:7], ledger=args.ledger) as state:
         if command == "monthly":
@@ -85,13 +178,30 @@ def run_workflow(command: str, args) -> dict:
                 Path("models/demand_release"),
                 first_test=args.first_test,
                 max_iter=args.max_iter,
-                approval_file=args.approval_file,
+                approval_file=None,
             )
             state["gate_status"] = "passed" if result["release_gate"]["passed"] else "failed"
-            if result["promotion"]["status"] == "promoted":
-                state["model_checksum"] = sha256_file(Path("models/demand_release/production.joblib"))
+            if result["release_gate"]["passed"] and args.approval_file is not None:
+                result = promote_existing_candidate(
+                    Path("models/demand_release/candidate.joblib"),
+                    Path("models/demand_release/rolling_backtest.json"),
+                    args.approval_file,
+                    production_path=PRODUCTION_MODEL_PATH,
+                    archive_root=MODEL_ARCHIVE_ROOT,
+                )
+                state["model_checksum"] = result["production_model_sha256"]
             else:
                 state["status"] = "blocked"
+        elif command == "promote":
+            result = promote_existing_candidate(
+                args.candidate,
+                args.report,
+                args.approval_file,
+                production_path=PRODUCTION_MODEL_PATH,
+                archive_root=MODEL_ARCHIVE_ROOT,
+            )
+            state["gate_status"] = "passed"
+            state["model_checksum"] = result["production_model_sha256"]
         elif command == "forecast":
             result = publish_forecast(
                 Path("data/processed/hourly_zone_demand.parquet"), Path("models/demand_release/production.joblib"),
@@ -129,6 +239,10 @@ def main(argv: list[str] | None = None) -> int:
     model.add_argument("--first-test", default="2024-07")
     model.add_argument("--max-iter", type=int, default=60)
     model.add_argument("--approval-file", type=Path)
+    promote = sub.add_parser("promote")
+    promote.add_argument("--candidate", type=Path, required=True)
+    promote.add_argument("--report", type=Path, required=True)
+    promote.add_argument("--approval-file", type=Path, required=True)
     forecast = sub.add_parser("forecast")
     forecast.add_argument("--horizon", type=int, default=24)
     forecast.add_argument("--approval-file", type=Path, required=True)

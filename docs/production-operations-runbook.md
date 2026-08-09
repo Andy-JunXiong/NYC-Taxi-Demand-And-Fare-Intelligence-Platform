@@ -23,18 +23,38 @@ Statuses are `running`, `completed`, `blocked`, or `failed`. A quality/model/dri
 ```powershell
 python -m src.nyc_taxi.operations monthly --start 2025-02 --end 2025-02
 python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
+python -m src.nyc_taxi.operations promote --candidate <candidate.joblib> --report <rolling_backtest.json> --approval-file <path>
 python -m src.nyc_taxi.operations forecast --horizon 24 --approval-file <path>
 python -m src.nyc_taxi.operations monitor
 ```
 
-Model validation writes `candidate.joblib` but does not replace production.
+Model validation without an approval writes `candidate.joblib` and stops before
+production replacement. The separate `promote` command accepts an already
+reviewed candidate, its release report, and an approval record. For compatibility
+with the existing manual workflow, `model --approval-file <path>` first completes
+model validation without promotion and then routes the resulting candidate
+through the same guarded promotion path. The report must contain a passing
+release gate, be in `awaiting_human_approval`, and name the exact candidate
+SHA-256.
+
 Promotion requires a JSON approval record with `schema_version: "1.0"`,
 `action: "model_promotion"`, `approved: true`, a named `reviewer`, an ISO-8601
 `approved_at` containing a UTC offset, and the candidate `artifact_sha256`;
-pass its path using `--approval-file`. Promotion atomically copies the exact
-approved candidate bytes into production. Forecast publication requires a
-separate record with action `forecast_publication` bound to the current
-production model SHA-256. Start from the inert, checked
+pass its path using `--approval-file`. Promotion retains the exact previous
+production model under
+`models/demand_release/archive/<previous-sha256>.joblib`, then
+atomically copies the exact approved candidate bytes into
+`models/demand_release/production.joblib`. The ledger result records the prior
+and new checksums plus the archive path.
+
+The archive makes the previous bytes recoverable but does not authorize or
+automate rollback. Replacing production with an archived model remains a
+separate destructive operation requiring an authenticated-human instruction
+naming the exact archive and production target.
+
+Forecast publication requires a separate record with action
+`forecast_publication` bound to the current production model SHA-256. Start from
+the inert, checked
 [`approval-record-template.json`](approval-record-template.json) and follow the
 field guidance in [`approval-records.md`](approval-records.md).
 
@@ -61,7 +81,11 @@ path handling without executing a production write.
 - Existing raw and Silver partitions are skipped unless `--force` is supplied.
 - Silver and Gold write to temporary files and replace published Parquet only after reconciliation succeeds.
 - The monthly job derives the historical Gold range from lineage and checks every expected monthly quality report, preventing a one-month run from truncating historical Gold.
-- Model and forecast production files use temporary writes and atomic replacement after their release gates pass.
+- Model promotion first retains the current production bytes in a checksum-keyed
+  archive. The archive and production copy both use temporary writes and
+  checksum verification before atomic replacement.
+- Forecast production files use temporary writes and atomic replacement after
+  their release gates pass.
 - Forecast versions are immutable in the archive.
 
 ## Scheduling
