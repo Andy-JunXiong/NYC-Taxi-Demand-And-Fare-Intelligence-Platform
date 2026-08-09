@@ -12,6 +12,37 @@ python -m src.nyc_taxi.prediction --approval-file <forecast-approval.json>
 
 The product is written to `data/processed/forecasts/hourly_zone_demand_forecast.parquet`. Its lineage records Gold and model checksums, output checksum, horizon, coverage, and gate decision.
 
+## Staging forecast closure
+
+A release-gate-passing model candidate can be evaluated against later actuals
+without promoting the model or publishing a forecast. Use a cutoff Gold artifact
+that ends immediately before the forecast window, the exact candidate named by
+its `rolling_backtest.json`, and an output directory below
+`data/processed/staging/`:
+
+```powershell
+python -m src.nyc_taxi.operations --ledger <staging-output>/runs.sqlite forecast-candidate `
+  --input <cutoff-gold.parquet> `
+  --model <candidate.joblib> `
+  --model-report <rolling_backtest.json> `
+  --output-dir <staging-output>
+
+python -m src.nyc_taxi.operations --ledger <staging-output>/runs.sqlite monitor `
+  --forecast <staging-output>/forecast.parquet `
+  --actual <full-gold-with-matured-actuals.parquet> `
+  --output <staging-output>/monitoring.json
+```
+
+The candidate command verifies the model report's passing release gate,
+`awaiting_human_approval` status, and exact candidate SHA-256. It writes only
+`forecast.parquet`, `lineage.json`, and `gate.json` inside the staging output.
+Candidate lineage uses `status: candidate` and `source_model`; it does not claim
+that the model is production, consume a publication approval, archive a
+published product, or update `latest.json`.
+
+A scored drift failure is a stop condition. It must be reported and investigated;
+it does not authorize threshold changes, model promotion, or forecast publication.
+
 ## Publication gates
 
 A run is published only when it has the exact Zone×hour grid, unique keys, no missing or negative predictions, and correct airport/event/global model routing. The Parquet file is written to a temporary path and replaces the published product only after every check passes.

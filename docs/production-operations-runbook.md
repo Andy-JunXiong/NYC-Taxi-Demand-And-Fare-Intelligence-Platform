@@ -24,9 +24,17 @@ Statuses are `running`, `completed`, `blocked`, or `failed`. A quality/model/dri
 python -m src.nyc_taxi.operations monthly --start 2025-02 --end 2025-02
 python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
 python -m src.nyc_taxi.operations promote --candidate <candidate.joblib> --report <rolling_backtest.json> --approval-file <path>
+python -m src.nyc_taxi.operations --ledger <staging-output>/runs.sqlite forecast-candidate --input <cutoff-gold.parquet> --model <candidate.joblib> --model-report <rolling_backtest.json> --output-dir <staging-output>
 python -m src.nyc_taxi.operations forecast --horizon 24 --approval-file <path>
-python -m src.nyc_taxi.operations monitor
+python -m src.nyc_taxi.operations monitor --forecast <forecast.parquet> --actual <gold.parquet> --output <monitoring.json>
 ```
+
+`forecast-candidate` is a staging-only evaluation path. Its output directory is
+restricted to `data/processed/staging/`; it validates the candidate against the
+release report and does not require or consume production publication approval.
+Use a staging ledger for this command. The production `forecast` command remains
+the only operational publication path and retains its separate approval,
+archive, lineage, and latest-pointer behavior.
 
 Model validation without an approval writes `candidate.joblib` and stops before
 production replacement. The separate `promote` command accepts an already

@@ -9,23 +9,41 @@ The project is a governed pre-production MVP preparing for an operational
 pilot, not a continuously scheduled production service.
 
 - Product Phase 1, repository closeout: implementation and local validation are
-  complete. Version-control closeout remains pending because commit and push
-  require separate human instructions.
+  complete. The current repository closeout has separate human authorization
+  for commit and push to `main`.
 - Product Phase 2, continuous demand-data staging: complete locally for all 53
   months from 2022-01 through 2026-05. The demand quality gate passed every
   partition. Negative-fare warnings for 2025-01 through 2025-11 are
   non-blocking for demand and remain open for any future fare product.
-- Product Phase 3, controlled release: the 22-fold staging backtest passed all
-  release checks. Candidate SHA-256
+- Product Phase 3, controlled release: the 22-fold staging backtest and May 1
+  staging forecast/drift gates passed. A subsequent read-only May daily
+  recursive shadow found only 19/31 baseline wins and 20/31 daily drift-gate
+  passes. Candidate SHA-256
   `00a1d628acc7e53d527ddd9be23cb664eb8098def9dd433408e176cd407c5eae`
-  remains in `awaiting_human_approval`; it has not been promoted or published.
+  remains unpromoted and unpublished with a project decision of `HOLD`.
 
-The next product decision is whether an authenticated human approves promotion
-of that exact candidate. If approved, forecast generation for 2026-05-01,
-forecast publication, and monitoring against May actuals remain distinct steps;
-publication requires its own approval bound to the promoted model SHA. The
-evidence and exact stop point are recorded in
+The next product slice is to align model-release evidence with the actual daily
+24-hour recursive forecast product. Promotion is not the current next action.
+Forecast generation, model promotion, production publication, and monitoring
+remain distinct governed steps; publication still requires its own approval
+bound to the promoted model SHA. The evidence and exact stop point are recorded in
 [`development-log/2026-08-09.md`](development-log/2026-08-09.md).
+
+## Immediate next product slice
+
+1. Add an out-of-time daily 24-hour recursive shadow evaluation to the model
+   validation evidence, reusing operational forecast semantics.
+2. Report daily baseline wins, absolute drift checks, recursive-horizon behavior,
+   and holiday/market/zone segments. Do not silently turn new observations into
+   release thresholds.
+3. Add matched tests proving the shadow evaluation uses only information
+   available before each forecast day and cannot promote or publish artifacts.
+4. Re-run the April-cutoff candidate against May actuals and produce a new
+   promotion-readiness decision.
+
+This slice is expected to require specific approval for the affected core model
+validation files before implementation. Stop if the evidence boundary would
+require changing production publication or monitoring thresholds.
 
 ## P0 — close the approval-gate slice
 

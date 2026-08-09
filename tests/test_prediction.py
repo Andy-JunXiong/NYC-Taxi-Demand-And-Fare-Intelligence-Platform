@@ -9,7 +9,7 @@ import pytest
 import nyc_taxi.prediction as prediction
 from nyc_taxi.forecast import AIRPORT_ZONE_IDS
 from nyc_taxi.monitoring import score_frames
-from nyc_taxi.prediction import publish_forecast, validate_forecast
+from nyc_taxi.prediction import publish_forecast, validate_forecast, write_forecast_candidate
 
 
 def forecast_fixture():
@@ -141,6 +141,105 @@ def test_negative_prediction_does_not_replace_published_product(tmp_path: Path, 
     assert output.read_bytes() == b"existing published forecast"
     assert lineage.read_text(encoding="utf-8") == "existing lineage"
     assert json.loads(gate.read_text(encoding="utf-8"))["checks"]["no_negative_predictions"] is False
+
+
+def test_staging_candidate_is_generated_without_publication_side_effects(tmp_path: Path, monkeypatch):
+    class ConstantModel:
+        def __init__(self, value: float):
+            self.value = value
+
+        def predict(self, frame):
+            return np.full(len(frame), self.value)
+
+    hours = pd.date_range("2026-04-24", periods=168, freq="h")
+    hourly = pd.DataFrame([
+        {"pickup_zone_id": zone, "pickup_hour": hour, "trip_count": 10.0}
+        for hour in hours
+        for zone in (1, 132)
+    ])
+    artifact = {
+        "features": [],
+        "global_model": ConstantModel(8.0),
+        "airport_model": ConstantModel(12.0),
+        "airport_zone_ids": [132],
+    }
+    monkeypatch.setattr(prediction.joblib, "load", lambda _: artifact)
+    monkeypatch.setattr(prediction, "load_hourly", lambda _: hourly)
+
+    model = tmp_path / "candidate.joblib"
+    model.write_bytes(b"reviewed model")
+    model_sha256 = sha256(model.read_bytes()).hexdigest()
+    report = tmp_path / "rolling_backtest.json"
+    report.write_text("{}", encoding="utf-8")
+    gold = tmp_path / "gold.parquet"
+    gold.write_bytes(b"cutoff gold")
+    output_dir = tmp_path / "forecast-candidate"
+
+    lineage = write_forecast_candidate(
+        gold,
+        model,
+        report,
+        output_dir,
+        horizon=24,
+        expected_model_sha256=model_sha256,
+    )
+
+    assert lineage["status"] == "candidate"
+    assert lineage["forecast_start"] == "2026-05-01 00:00:00"
+    assert lineage["source_model_sha256"] == model_sha256
+    assert "production_model" not in lineage
+    assert "publication_approval" not in lineage
+    assert (output_dir / "forecast.parquet").is_file()
+    assert json.loads((output_dir / "gate.json").read_text(encoding="utf-8"))["passed"]
+    assert not (output_dir / "latest.json").exists()
+    assert not (output_dir / "archive").exists()
+
+
+def test_failed_staging_candidate_writes_only_gate_evidence(tmp_path: Path, monkeypatch):
+    class ConstantModel:
+        def __init__(self, value: float):
+            self.value = value
+
+        def predict(self, frame):
+            return np.full(len(frame), self.value)
+
+    hours = pd.date_range("2026-04-24", periods=168, freq="h")
+    hourly = pd.DataFrame([
+        {"pickup_zone_id": zone, "pickup_hour": hour, "trip_count": 10.0}
+        for hour in hours
+        for zone in (1, 132)
+    ])
+    artifact = {
+        "features": [],
+        "global_model": ConstantModel(-1.0),
+        "airport_model": ConstantModel(12.0),
+        "airport_zone_ids": [132],
+    }
+    monkeypatch.setattr(prediction.joblib, "load", lambda _: artifact)
+    monkeypatch.setattr(prediction, "load_hourly", lambda _: hourly)
+    monkeypatch.setattr(prediction.np, "clip", lambda values, *_: values)
+    model = tmp_path / "candidate.joblib"
+    model.write_bytes(b"reviewed model")
+    report = tmp_path / "rolling_backtest.json"
+    report.write_text("{}", encoding="utf-8")
+    gold = tmp_path / "gold.parquet"
+    gold.write_bytes(b"cutoff gold")
+    output_dir = tmp_path / "forecast-candidate"
+
+    with pytest.raises(RuntimeError, match="candidate gate failed"):
+        write_forecast_candidate(
+            gold,
+            model,
+            report,
+            output_dir,
+            horizon=1,
+            expected_model_sha256=sha256(model.read_bytes()).hexdigest(),
+        )
+
+    assert json.loads((output_dir / "gate.json").read_text(encoding="utf-8"))["checks"]["no_negative_predictions"] is False
+    assert not (output_dir / "forecast.parquet").exists()
+    assert not (output_dir / "lineage.json").exists()
+    assert not (output_dir / "latest.json").exists()
 
 
 def test_monitor_scores_zero_filled_zone_hours():

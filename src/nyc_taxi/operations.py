@@ -17,12 +17,13 @@ from .download import parse_month, sha256_file
 from .model_validation import rolling_backtest
 from .monitoring import monitor
 from .monthly_pipeline import run_monthly
-from .prediction import publish_forecast
+from .prediction import publish_forecast, write_forecast_candidate
 
 
 LEDGER_PATH = Path("data/processed/operations/runs.sqlite")
 PRODUCTION_MODEL_PATH = Path("models/demand_release/production.joblib")
 MODEL_ARCHIVE_ROOT = Path("models/demand_release/archive")
+STAGING_ROOT = Path("data/processed/staging")
 
 
 def _now() -> str:
@@ -166,6 +167,20 @@ def promote_existing_candidate(
     }
 
 
+def require_staging_output(output_dir: Path, staging_root: Path | None = None) -> Path:
+    """Reject candidate output paths outside the repository staging boundary."""
+    staging_root = STAGING_ROOT if staging_root is None else staging_root
+    resolved_output = output_dir.resolve()
+    resolved_root = staging_root.resolve()
+    try:
+        relative = resolved_output.relative_to(resolved_root)
+    except ValueError as exc:
+        raise PermissionError(f"Forecast candidate output must be under {staging_root.as_posix()}") from exc
+    if not relative.parts:
+        raise PermissionError("Forecast candidate output must be a child directory of the staging root")
+    return output_dir
+
+
 def run_workflow(command: str, args) -> dict:
     with record_run(command, period_start=getattr(args, "start", None) and str(args.start)[:7], period_end=getattr(args, "end", None) and str(args.end)[:7], ledger=args.ledger) as state:
         if command == "monthly":
@@ -213,11 +228,25 @@ def run_workflow(command: str, args) -> dict:
             )
             state["gate_status"] = "passed"
             state["forecast_checksum"] = result["output_sha256"]
+        elif command == "forecast-candidate":
+            output_dir = require_staging_output(args.output_dir)
+            candidate_sha256 = validate_promotion_evidence(args.model, args.model_report)
+            result = write_forecast_candidate(
+                args.input,
+                args.model,
+                args.model_report,
+                output_dir,
+                horizon=args.horizon,
+                expected_model_sha256=candidate_sha256,
+            )
+            state["gate_status"] = "passed"
+            state["model_checksum"] = candidate_sha256
+            state["forecast_checksum"] = result["output_sha256"]
         elif command == "monitor":
             result = monitor(
-                Path("data/processed/forecasts/hourly_zone_demand_forecast.parquet"),
-                Path("data/processed/hourly_zone_demand.parquet"),
-                Path("data/processed/monitoring/forecast-performance.json"),
+                args.forecast,
+                args.actual,
+                args.output,
             )
             state["gate_status"] = "waiting" if result["status"] == "waiting_for_actuals" else "passed" if result["drift"]["passed"] else "failed"
             if state["gate_status"] == "failed":
@@ -246,8 +275,19 @@ def main(argv: list[str] | None = None) -> int:
     forecast = sub.add_parser("forecast")
     forecast.add_argument("--horizon", type=int, default=24)
     forecast.add_argument("--approval-file", type=Path, required=True)
-    sub.add_parser("monitor")
+    forecast_candidate = sub.add_parser("forecast-candidate")
+    forecast_candidate.add_argument("--input", type=Path, required=True)
+    forecast_candidate.add_argument("--model", type=Path, required=True)
+    forecast_candidate.add_argument("--model-report", type=Path, required=True)
+    forecast_candidate.add_argument("--output-dir", type=Path, required=True)
+    forecast_candidate.add_argument("--horizon", type=int, default=24)
+    monitor_parser = sub.add_parser("monitor")
+    monitor_parser.add_argument("--forecast", type=Path, default=Path("data/processed/forecasts/hourly_zone_demand_forecast.parquet"))
+    monitor_parser.add_argument("--actual", type=Path, default=Path("data/processed/hourly_zone_demand.parquet"))
+    monitor_parser.add_argument("--output", type=Path, default=Path("data/processed/monitoring/forecast-performance.json"))
     args = parser.parse_args(argv)
+    if hasattr(args, "horizon") and not 1 <= args.horizon <= 168:
+        parser.error("horizon must be between 1 and 168 hours")
     result = run_workflow(args.command, args)
     print(json.dumps(result, indent=2, default=str))
     return 0

@@ -83,23 +83,21 @@ def validate_forecast(frame: pd.DataFrame, zones: set[int], horizon: int, airpor
     return {"passed": all(checks.values()), "checks": checks, "expected_rows": expected_rows, "actual_rows": len(frame)}
 
 
-def publish_forecast(
+def generate_forecast(
     hourly_path: Path,
     model_path: Path,
-    output: Path,
-    lineage_output: Path,
-    gate_output: Path,
     *,
     horizon: int = 24,
-    approval_file: Path,
-) -> dict:
-    approval = require_approval(
-        approval_file, action="forecast_publication", artifact_sha256=sha256_file(model_path)
-    )
+    expected_model_sha256: str | None = None,
+) -> tuple[pd.DataFrame, dict, datetime, int]:
+    """Generate and validate a forecast without publishing or writing artifacts."""
+    model_sha256 = sha256_file(model_path)
+    if expected_model_sha256 is not None and model_sha256 != expected_model_sha256:
+        raise PermissionError("Model artifact does not match the reviewed SHA-256")
     artifact = joblib.load(model_path)
     model_features = artifact.get("features", [])
     if not set(model_features).issubset(MODEL_FEATURES):
-        raise ValueError("Production model requires features unavailable to inference code")
+        raise ValueError("Model artifact requires features unavailable to inference code")
     hourly = load_hourly(hourly_path)
     last_hour = pd.Timestamp(hourly["pickup_hour"].max()).floor("h")
     zones = np.sort(hourly["pickup_zone_id"].dropna().astype(int).unique())
@@ -109,7 +107,7 @@ def publish_forecast(
     history = {int(zone): pivot[zone].tolist() if zone in pivot else [0.0] * 168 for zone in zones}
     airport_ids = set(map(int, artifact["airport_zone_ids"]))
     generated_at = datetime.now(timezone.utc)
-    model_version = sha256_file(model_path)[:16]
+    model_version = model_sha256[:16]
     rows = []
     for step in range(1, horizon + 1):
         forecast_hour = last_hour + timedelta(hours=step)
@@ -130,24 +128,105 @@ def publish_forecast(
                 "model_version": model_version,
                 "event_code": int(features.loc[features["pickup_zone_id"].eq(zone), "event_code"].iloc[0]),
             })
+    if sha256_file(model_path) != model_sha256:
+        raise OSError("Model artifact changed during forecast generation")
     frame = pd.DataFrame(rows)
     gate = validate_forecast(frame, set(map(int, zones)), horizon, airport_ids)
+    return frame, gate, generated_at, len(zones)
+
+
+def _write_parquet_atomic(frame: pd.DataFrame, output: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".part")
+    connection = duckdb.connect()
+    try:
+        connection.register("forecast", frame)
+        connection.execute(f"COPY forecast TO '{temporary.resolve().as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    finally:
+        connection.close()
+    temporary.replace(output)
+
+
+def write_forecast_candidate(
+    hourly_path: Path,
+    model_path: Path,
+    model_report_path: Path,
+    output_dir: Path,
+    *,
+    horizon: int = 24,
+    expected_model_sha256: str,
+) -> dict:
+    """Write a reviewed staging forecast candidate without publishing it."""
+    frame, gate, generated_at, zone_count = generate_forecast(
+        hourly_path,
+        model_path,
+        horizon=horizon,
+        expected_model_sha256=expected_model_sha256,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    gate_output = output_dir / "gate.json"
+    gate_temporary = gate_output.with_suffix(".json.part")
+    gate_temporary.write_text(json.dumps(gate, indent=2) + "\n", encoding="utf-8")
+    gate_temporary.replace(gate_output)
+    if not gate["passed"]:
+        raise RuntimeError("Forecast candidate gate failed")
+    output = output_dir / "forecast.parquet"
+    lineage_output = output_dir / "lineage.json"
+    _write_parquet_atomic(frame, output)
+    lineage = {
+        "product": "hourly_zone_demand_forecast",
+        "status": "candidate",
+        "generated_at": generated_at.isoformat(),
+        "forecast_start": str(frame["forecast_hour"].min()),
+        "forecast_end": str(frame["forecast_hour"].max()),
+        "horizon_hours": horizon,
+        "zones": zone_count,
+        "rows": len(frame),
+        "source_gold": hourly_path.as_posix(),
+        "source_gold_sha256": sha256_file(hourly_path),
+        "source_model": model_path.as_posix(),
+        "source_model_sha256": expected_model_sha256,
+        "model_report": model_report_path.as_posix(),
+        "model_report_sha256": sha256_file(model_report_path),
+        "output": output.as_posix(),
+        "output_sha256": sha256_file(output),
+        "gate": gate,
+    }
+    lineage_temporary = lineage_output.with_suffix(".json.part")
+    lineage_temporary.write_text(json.dumps(lineage, indent=2) + "\n", encoding="utf-8")
+    lineage_temporary.replace(lineage_output)
+    return lineage
+
+
+def publish_forecast(
+    hourly_path: Path,
+    model_path: Path,
+    output: Path,
+    lineage_output: Path,
+    gate_output: Path,
+    *,
+    horizon: int = 24,
+    approval_file: Path,
+) -> dict:
+    approval = require_approval(
+        approval_file, action="forecast_publication", artifact_sha256=sha256_file(model_path)
+    )
+    frame, gate, generated_at, zone_count = generate_forecast(
+        hourly_path,
+        model_path,
+        horizon=horizon,
+        expected_model_sha256=approval["artifact_sha256"],
+    )
     gate_output.parent.mkdir(parents=True, exist_ok=True)
     gate_output.write_text(json.dumps(gate, indent=2) + "\n", encoding="utf-8")
     if not gate["passed"]:
         raise RuntimeError("Forecast publication gate failed")
     archived = archive_current(output, lineage_output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_suffix(output.suffix + ".part")
-    connection = duckdb.connect()
-    connection.register("forecast", frame)
-    connection.execute(f"COPY forecast TO '{temporary.resolve().as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-    connection.close()
-    temporary.replace(output)
+    _write_parquet_atomic(frame, output)
     lineage = {
         "product": "hourly_zone_demand_forecast", "generated_at": generated_at.isoformat(),
         "forecast_start": str(frame["forecast_hour"].min()), "forecast_end": str(frame["forecast_hour"].max()),
-        "horizon_hours": horizon, "zones": len(zones), "rows": len(frame),
+        "horizon_hours": horizon, "zones": zone_count, "rows": len(frame),
         "source_gold": hourly_path.as_posix(), "source_gold_sha256": sha256_file(hourly_path),
         "production_model": model_path.as_posix(), "production_model_sha256": sha256_file(model_path),
         "output": output.as_posix(), "output_sha256": sha256_file(output), "gate": gate,

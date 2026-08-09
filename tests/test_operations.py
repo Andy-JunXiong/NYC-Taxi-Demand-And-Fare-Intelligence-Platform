@@ -229,3 +229,81 @@ def test_model_approval_routes_through_guarded_existing_candidate_promotion(tmp_
         Path("models/demand_release/rolling_backtest.json"),
         approval,
     )
+
+
+def test_forecast_candidate_validates_reviewed_model_and_uses_staging_writer(tmp_path: Path, monkeypatch):
+    staging_root = tmp_path / "staging"
+    output_dir = staging_root / "closure"
+    input_path = tmp_path / "gold.parquet"
+    model = tmp_path / "candidate.joblib"
+    report = tmp_path / "rolling_backtest.json"
+    ledger = tmp_path / "runs.sqlite"
+    input_path.write_bytes(b"gold")
+    model.write_bytes(b"candidate")
+    model_sha256 = sha256(model.read_bytes()).hexdigest()
+    write_report(report, model_sha256)
+    calls = {}
+
+    def fake_writer(hourly_path, model_path, model_report_path, target, *, horizon, expected_model_sha256):
+        calls["writer"] = (
+            hourly_path, model_path, model_report_path, target, horizon, expected_model_sha256
+        )
+        return {"output_sha256": "f" * 64}
+
+    monkeypatch.setattr(operations, "STAGING_ROOT", staging_root)
+    monkeypatch.setattr(operations, "write_forecast_candidate", fake_writer)
+
+    exit_code = operations.main([
+        "--ledger", str(ledger), "forecast-candidate",
+        "--input", str(input_path),
+        "--model", str(model),
+        "--model-report", str(report),
+        "--output-dir", str(output_dir),
+    ])
+
+    assert exit_code == 0
+    assert calls["writer"] == (
+        input_path, model, report, output_dir, 24, model_sha256
+    )
+    connection = sqlite3.connect(ledger)
+    row = connection.execute(
+        "SELECT pipeline,status,gate_status,model_checksum,forecast_checksum FROM pipeline_runs"
+    ).fetchone()
+    connection.close()
+    assert row == ("forecast-candidate", "completed", "passed", model_sha256, "f" * 64)
+
+
+def test_forecast_candidate_rejects_output_outside_staging(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(operations, "STAGING_ROOT", tmp_path / "staging")
+
+    with pytest.raises(PermissionError, match="must be under"):
+        operations.main([
+            "--ledger", str(tmp_path / "runs.sqlite"), "forecast-candidate",
+            "--input", str(tmp_path / "gold.parquet"),
+            "--model", str(tmp_path / "candidate.joblib"),
+            "--model-report", str(tmp_path / "report.json"),
+            "--output-dir", str(tmp_path / "production"),
+        ])
+
+
+def test_monitor_routes_explicit_staging_paths(tmp_path: Path, monkeypatch):
+    forecast = tmp_path / "forecast.parquet"
+    actual = tmp_path / "actual.parquet"
+    output = tmp_path / "monitoring.json"
+    ledger = tmp_path / "runs.sqlite"
+    calls = {}
+
+    def fake_monitor(forecast_path, actual_path, output_path):
+        calls["monitor"] = (forecast_path, actual_path, output_path)
+        return {"status": "scored", "drift": {"passed": True}}
+
+    monkeypatch.setattr(operations, "monitor", fake_monitor)
+    exit_code = operations.main([
+        "--ledger", str(ledger), "monitor",
+        "--forecast", str(forecast),
+        "--actual", str(actual),
+        "--output", str(output),
+    ])
+
+    assert exit_code == 0
+    assert calls["monitor"] == (forecast, actual, output)
