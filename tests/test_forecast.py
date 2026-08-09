@@ -39,6 +39,22 @@ def test_event_calendar_marks_new_year_phases():
     assert result.iloc[2]["is_event_window"] == 0
 
 
+def test_event_calendar_routes_memorial_day_weekend_window():
+    timestamps = pd.Series(pd.to_datetime([
+        "2026-05-23 12:00", "2026-05-24 12:00", "2026-05-25 12:00", "2026-05-26 12:00"
+    ]))
+
+    result = event_features(timestamps)
+
+    assert result.iloc[0]["is_event_window"] == 0
+    assert result.iloc[1]["event_code"] == EVENT_CODES["none"]
+    assert result.iloc[1]["is_event_eve"] == 1
+    assert result.iloc[1]["is_event_window"] == 1
+    assert result.iloc[2]["event_code"] == EVENT_CODES["memorial_day"]
+    assert result.iloc[2]["is_event_window"] == 1
+    assert result.iloc[3]["is_event_window"] == 0
+
+
 def test_time_split_uses_last_two_months():
     train, validation, test, split = time_split(make_feature_table(hourly_fixture()))
     assert split.validation_month == "2024-02"

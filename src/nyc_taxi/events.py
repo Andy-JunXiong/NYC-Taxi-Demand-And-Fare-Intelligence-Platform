@@ -8,12 +8,25 @@ import numpy as np
 import pandas as pd
 
 
-EVENT_CODES = {"none": 0, "new_year": 1, "independence_day": 2, "thanksgiving": 3, "christmas": 4}
+EVENT_CODES = {
+    "none": 0,
+    "new_year": 1,
+    "independence_day": 2,
+    "thanksgiving": 3,
+    "christmas": 4,
+    "memorial_day": 5,
+}
 
 
 def thanksgiving(year: int) -> date:
     first = date(year, 11, 1)
     return first + timedelta(days=(3 - first.weekday()) % 7 + 21)
+
+
+def memorial_day(year: int) -> date:
+    """Return the final Monday in May."""
+    last_day = date(year, 5, 31)
+    return last_day - timedelta(days=(last_day.weekday() - 0) % 7)
 
 
 def event_dates(year: int) -> dict[date, int]:
@@ -22,6 +35,7 @@ def event_dates(year: int) -> dict[date, int]:
         date(year, 7, 4): EVENT_CODES["independence_day"],
         thanksgiving(year): EVENT_CODES["thanksgiving"],
         date(year, 12, 25): EVENT_CODES["christmas"],
+        memorial_day(year): EVENT_CODES["memorial_day"],
     }
 
 
@@ -41,13 +55,16 @@ def event_features(timestamp: pd.Series) -> pd.DataFrame:
         new_year_window = (ts.month == 12 and ts.day == 31 and ts.hour >= 18) or (
             ts.month == 1 and ts.day == 1 and ts.hour <= 6
         )
+        memorial_window = code == EVENT_CODES["memorial_day"] or (
+            events.get(tomorrow) == EVENT_CODES["memorial_day"]
+        )
         event_times = sorted(pd.Timestamp(day) for day in events)
         future = [event for event in event_times if event >= ts]
         past = [event for event in event_times if event <= ts]
         to_event = min(168.0, (future[0] - ts).total_seconds() / 3600) if future else 168.0
         since_event = min(168.0, (ts - past[-1]).total_seconds() / 3600) if past else 168.0
         cache[ts] = (
-            code, int(code > 0 or new_year_window), int(is_eve),
+            code, int(code > 0 or new_year_window or memorial_window), int(is_eve),
             int(ts.month == 1 and ts.day == 1 and ts.hour <= 5), int(new_year_window),
             float(max(to_event, 0)), float(max(since_event, 0)),
         )

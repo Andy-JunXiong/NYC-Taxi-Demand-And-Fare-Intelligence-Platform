@@ -70,6 +70,11 @@ def validate_forecast(frame: pd.DataFrame, zones: set[int], horizon: int, airpor
     hours = sorted(pd.to_datetime(frame["forecast_hour"]).unique())
     expected_pairs = {(zone, hour) for zone in zones for hour in hours}
     airport = frame[frame["pickup_zone_id"].isin(airport_ids)]
+    event_window = (
+        frame["is_event_window"].eq(1)
+        if "is_event_window" in frame
+        else frame["event_code"].ne(0)
+    )
     checks = {
         "expected_row_count": len(frame) == expected_rows,
         "complete_zone_hour_grid": len(hours) == horizon and actual_pairs == expected_pairs,
@@ -77,8 +82,8 @@ def validate_forecast(frame: pd.DataFrame, zones: set[int], horizon: int, airpor
         "no_null_predictions": not frame["predicted_trip_count"].isna().any(),
         "no_negative_predictions": bool(frame["predicted_trip_count"].ge(0).all()),
         "airport_model_routing": not airport.empty and bool(airport["model_type"].eq("airport_specialist").all()),
-        "event_model_routing": bool(frame.loc[(~frame["pickup_zone_id"].isin(airport_ids)) & frame["event_code"].ne(0), "model_type"].eq("event_specialist").all()),
-        "global_model_routing": bool(frame.loc[(~frame["pickup_zone_id"].isin(airport_ids)) & frame["event_code"].eq(0), "model_type"].eq("global").all()),
+        "event_model_routing": bool(frame.loc[(~frame["pickup_zone_id"].isin(airport_ids)) & event_window, "model_type"].eq("event_specialist").all()),
+        "global_model_routing": bool(frame.loc[(~frame["pickup_zone_id"].isin(airport_ids)) & ~event_window, "model_type"].eq("global").all()),
     }
     return {"passed": all(checks.values()), "checks": checks, "expected_rows": expected_rows, "actual_rows": len(frame)}
 
@@ -127,6 +132,7 @@ def generate_forecast(
                 "model_type": "airport_specialist" if is_airport else "event_specialist" if features.loc[features["pickup_zone_id"].eq(zone), "is_event_window"].iloc[0] and "event_model" in artifact else "global",
                 "model_version": model_version,
                 "event_code": int(features.loc[features["pickup_zone_id"].eq(zone), "event_code"].iloc[0]),
+                "is_event_window": int(features.loc[features["pickup_zone_id"].eq(zone), "is_event_window"].iloc[0]),
             })
     if sha256_file(model_path) != model_sha256:
         raise OSError("Model artifact changed during forecast generation")

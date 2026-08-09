@@ -16,14 +16,18 @@ pilot, not a continuously scheduled production service.
   partition. Negative-fare warnings for 2025-01 through 2025-11 are
   non-blocking for demand and remain open for any future fare product.
 - Product Phase 3, controlled release: the 22-fold staging backtest and May 1
-  staging forecast/drift gates passed. A subsequent read-only May daily
-  recursive shadow found only 19/31 baseline wins and 20/31 daily drift-gate
-  passes. Candidate SHA-256
-  `00a1d628acc7e53d527ddd9be23cb664eb8098def9dd433408e176cd407c5eae`
-  remains unpromoted and unpublished with a project decision of `HOLD`.
+  staging forecast/drift gates passed. Daily recursive shadow evaluation is now
+  implemented as observational evidence that cannot promote or publish an
+  artifact. A Memorial Day-aware v2 improved May WAPE from 23.60% to 22.59% and
+  daily drift passes from 20/31 to 21/31, but daily baseline wins fell from
+  19/31 to 18/31. Candidate v2 SHA-256
+  `29354b382cd6761c3a307c76d821bb1855354cc87eb3c8f9b020cdf83134e334`
+  remains a local staging identity, unpromoted and unpublished, with a project
+  decision of `HOLD`.
 
-The next product slice is to align model-release evidence with the actual daily
-24-hour recursive forecast product. Promotion is not the current next action.
+The next product slice is to define and review the decision boundary for daily
+24-hour recursive stability, then investigate the remaining losing days and
+horizon degradation. Promotion is not the current next action.
 Forecast generation, model promotion, production publication, and monitoring
 remain distinct governed steps; publication still requires its own approval
 bound to the promoted model SHA. The evidence and exact stop point are recorded in
@@ -31,19 +35,22 @@ bound to the promoted model SHA. The evidence and exact stop point are recorded 
 
 ## Immediate next product slice
 
-1. Add an out-of-time daily 24-hour recursive shadow evaluation to the model
-   validation evidence, reusing operational forecast semantics.
-2. Report daily baseline wins, absolute drift checks, recursive-horizon behavior,
-   and holiday/market/zone segments. Do not silently turn new observations into
-   release thresholds.
-3. Add matched tests proving the shadow evaluation uses only information
-   available before each forecast day and cannot promote or publish artifacts.
-4. Re-run the April-cutoff candidate against May actuals and produce a new
-   promotion-readiness decision.
+1. Human-review whether daily win rate, worst-day degradation, and daily drift
+   pass rate should become release criteria, advisory evidence, or both. Do not
+   derive thresholds from the May sample alone.
+2. Diagnose the 13 v2 days that do not beat the previous-week baseline and the
+   remaining recursive-horizon degradation using only pre-forecast information.
+3. Establish a deterministic model-package identity or explicitly version the
+   serialization environment. Re-dumping an equivalent loaded `joblib` object
+   changed its SHA during the 2026-08-09 audit, so rebuilt bytes must not inherit
+   a prior artifact approval.
+4. Train and shadow-evaluate a new candidate only after the intended decision
+   boundary and artifact identity are reviewed.
 
-This slice is expected to require specific approval for the affected core model
-validation files before implementation. Stop if the evidence boundary would
-require changing production publication or monitoring thresholds.
+Any change to model release, prediction, monitoring, or publication gates
+requires specific approval for the affected core files. Stop if a proposed
+change would silently relax an existing threshold or couple observation to
+promotion/publication.
 
 ## P0 — close the approval-gate slice
 

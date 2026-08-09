@@ -74,9 +74,11 @@ service or live forecast API is claimed.
 
 The latest local staging run is recorded in
 [`docs/development-log/2026-08-09.md`](docs/development-log/2026-08-09.md). It
-closes the monthly demand-data gap through May 2026 and produces a release-gate
-passing model candidate trained through April 2026. That candidate remains
-unpromoted and unpublished pending separate human approvals.
+closes the monthly demand-data gap through May 2026, adds daily recursive
+shadow evaluation, and evaluates a Memorial Day-aware candidate trained through
+April 2026. The candidate improves aggregate May behavior but wins only 18 of
+31 daily comparisons, so the project decision remains `HOLD`. No candidate is
+promoted or published.
 
 ## Repository map
 
@@ -342,11 +344,12 @@ The full dataset is large. Expect substantial memory use and long execution time
 
 ## Suggested next steps
 
-- Review the exact April 2026 model candidate and, only with a separate approval
-  bound to its SHA-256, decide whether to promote it.
-- If promotion is approved, generate the May 1 forecast in staging, obtain a
-  separate publication approval, and close the forecast against existing May
-  actuals.
+- Define and human-review how daily recursive stability evidence affects model
+  release decisions; do not infer a new threshold from one May shadow run.
+- Investigate the remaining daily losses and horizon-specific degradation before
+  training another candidate. Keep the current candidate on `HOLD`.
+- Establish a reproducible model-package identity before treating a rebuilt
+  `joblib` file as equivalent to a previously reviewed SHA-256 artifact.
 - Investigate the non-blocking 2025 negative-fare warnings before treating fare
   intelligence as an operational product.
 - Complete the Sydney evidence requirement with at least two distinct governed

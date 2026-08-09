@@ -46,6 +46,22 @@ def test_airport_specialist_routing_covers_jfk_and_laguardia():
     assert result["checks"]["airport_model_routing"]
 
 
+def test_publication_gate_routes_event_eve_by_window_not_event_code():
+    frame = pd.DataFrame({
+        "pickup_zone_id": [1, 132],
+        "forecast_hour": [pd.Timestamp("2026-05-24 12:00")] * 2,
+        "predicted_trip_count": [10.0, 10.0],
+        "model_type": ["event_specialist", "airport_specialist"],
+        "event_code": [0, 0],
+        "is_event_window": [1, 1],
+    })
+
+    result = validate_forecast(frame, {1, 132}, 1, {132})
+
+    assert result["passed"]
+    assert result["checks"]["event_model_routing"]
+
+
 def test_forecast_publication_gate_blocks_negative_prediction():
     frame = forecast_fixture()
     frame.loc[0, "predicted_trip_count"] = -1.0
