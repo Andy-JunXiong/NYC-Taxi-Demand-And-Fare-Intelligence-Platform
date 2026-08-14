@@ -214,6 +214,28 @@ For meaningful changes:
    condition is reached;
 6. hand off results without automatically committing or releasing them.
 
+### Feature-completion report
+
+After a feature genuinely reaches its definition of done, the final response
+must include these five labeled items in this order:
+
+1. `Completed`: the behavior delivered and the acceptance evidence that shows
+   it is complete;
+2. `Short-term benefits`: the immediate user, developer, or operational value;
+3. `Long-term benefits`: the maintainability, architecture, governance, or
+   product value expected over time;
+4. `Next feature`: the single smallest recommended follow-on feature, clearly
+   described as a proposal rather than authorization to begin it; and
+5. `How they connect`: how the next feature consumes, extends, validates, or
+   otherwise builds on the completed feature's interfaces and evidence.
+
+Keep the report concise and evidence-based. Do not invent benefits or describe
+an incomplete feature as complete. Report unresolved gaps, validation results,
+and untouched user changes as required by the worktree-safety rules. If there is
+no responsible follow-on feature, say so and explain why. Recommending a next
+feature never authorizes implementation, external writes, publication,
+deployment, or any other consequential action.
+
 ## Validation
 
 Run the nearest directly matched tests and invariant checks first for the
