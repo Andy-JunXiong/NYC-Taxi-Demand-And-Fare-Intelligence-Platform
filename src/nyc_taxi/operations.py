@@ -15,7 +15,7 @@ from pathlib import Path
 from .approvals import promote_approved_artifact, require_approval
 from .download import parse_month, sha256_file
 from .model_validation import rolling_backtest
-from .monitoring import monitor
+from .monitoring import LATEST_FORECAST_PATH, monitor, resolve_latest_forecast
 from .monthly_pipeline import run_monthly
 from .prediction import publish_forecast, write_forecast_candidate
 
@@ -243,11 +243,16 @@ def run_workflow(command: str, args) -> dict:
             state["model_checksum"] = candidate_sha256
             state["forecast_checksum"] = result["output_sha256"]
         elif command == "monitor":
-            result = monitor(
-                args.forecast,
-                args.actual,
-                args.output,
-            )
+            if args.forecast is None:
+                forecast_path, source_release = resolve_latest_forecast(args.latest)
+                result = monitor(
+                    forecast_path,
+                    args.actual,
+                    args.output,
+                    source_release=source_release,
+                )
+            else:
+                result = monitor(args.forecast, args.actual, args.output)
             state["gate_status"] = "waiting" if result["status"] == "waiting_for_actuals" else "passed" if result["drift"]["passed"] else "failed"
             if state["gate_status"] == "failed":
                 state["status"] = "blocked"
@@ -282,7 +287,8 @@ def main(argv: list[str] | None = None) -> int:
     forecast_candidate.add_argument("--output-dir", type=Path, required=True)
     forecast_candidate.add_argument("--horizon", type=int, default=24)
     monitor_parser = sub.add_parser("monitor")
-    monitor_parser.add_argument("--forecast", type=Path, default=Path("data/processed/forecasts/hourly_zone_demand_forecast.parquet"))
+    monitor_parser.add_argument("--forecast", type=Path)
+    monitor_parser.add_argument("--latest", type=Path, default=LATEST_FORECAST_PATH)
     monitor_parser.add_argument("--actual", type=Path, default=Path("data/processed/hourly_zone_demand.parquet"))
     monitor_parser.add_argument("--output", type=Path, default=Path("data/processed/monitoring/forecast-performance.json"))
     args = parser.parse_args(argv)

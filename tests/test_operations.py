@@ -307,3 +307,46 @@ def test_monitor_routes_explicit_staging_paths(tmp_path: Path, monkeypatch):
 
     assert exit_code == 0
     assert calls["monitor"] == (forecast, actual, output)
+
+
+def test_monitor_defaults_to_verified_latest_release(tmp_path: Path, monkeypatch):
+    latest = tmp_path / "latest.json"
+    forecast = tmp_path / "releases" / "release-1" / "forecast.parquet"
+    actual = tmp_path / "actual.parquet"
+    output = tmp_path / "monitoring.json"
+    ledger = tmp_path / "runs.sqlite"
+    source = {
+        "release_id": "release-1",
+        "latest_pointer": latest.as_posix(),
+        "output_sha256": "f" * 64,
+    }
+    calls = {}
+
+    def fake_resolve(latest_path):
+        calls["latest"] = latest_path
+        return forecast, source
+
+    def fake_monitor(forecast_path, actual_path, output_path, *, source_release):
+        calls["monitor"] = (forecast_path, actual_path, output_path, source_release)
+        return {
+            "status": "scored",
+            "drift": {"passed": True},
+            "source_release": source_release,
+        }
+
+    monkeypatch.setattr(operations, "resolve_latest_forecast", fake_resolve)
+    monkeypatch.setattr(operations, "monitor", fake_monitor)
+    exit_code = operations.main([
+        "--ledger", str(ledger), "monitor",
+        "--latest", str(latest),
+        "--actual", str(actual),
+        "--output", str(output),
+    ])
+
+    assert exit_code == 0
+    assert calls["latest"] == latest
+    assert calls["monitor"] == (forecast, actual, output, source)
+    connection = sqlite3.connect(ledger)
+    result = json.loads(connection.execute("SELECT result_json FROM pipeline_runs").fetchone()[0])
+    connection.close()
+    assert result["source_release"]["release_id"] == "release-1"

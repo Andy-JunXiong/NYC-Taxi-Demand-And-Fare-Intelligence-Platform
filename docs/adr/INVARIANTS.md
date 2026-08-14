@@ -140,8 +140,9 @@ Reject the candidate model and retain the last approved production artifact.
 
 ### Statement
 
-A forecast replaces the published product only after the Zone-by-hour grid,
-key uniqueness, prediction validity, and model-routing gates all pass.
+A forecast becomes canonical only after the Zone-by-hour grid, key uniqueness,
+prediction validity, and model-routing gates pass; a complete immutable release
+bundle is verified; and `latest.json` is atomically replaced to name that bundle.
 
 ### Rationale
 
@@ -151,6 +152,9 @@ decisions and must not overwrite the last known-good product.
 ### Applies to
 
 - `src/nyc_taxi/prediction.py`
+- `src/nyc_taxi/releases.py`
+- `src/nyc_taxi/monitoring.py`
+- `src/nyc_taxi/operations.py`
 - `data/processed/forecasts/` runtime products
 
 ### Does not apply to
@@ -160,18 +164,24 @@ decisions and must not overwrite the last known-good product.
 ### Enforcement points
 
 - `src/nyc_taxi/prediction.py`
-- `tests/test_prediction.py`
+- `src/nyc_taxi/releases.py`
+- default monitoring resolution through `data/processed/forecasts/latest.json`
+- `tests/test_prediction.py`, `tests/test_releases.py`, and
+  `tests/test_publication_failure_safety.py`
 
 ### Verification
 
-- Automated: `python -m pytest -q tests/test_prediction.py`
+- Automated: `python -m pytest -q tests/test_prediction.py tests/test_releases.py tests/test_publication_failure_safety.py`
 - Review: Not applicable for the deterministic publication gate.
-- Passing evidence: `validate_forecast` returns `passed=true` before atomic
-  publication.
+- Passing evidence: `validate_forecast` returns `passed=true`, the release
+  resolver verifies all three artifact digests, and injected pre-pointer-swap
+  failures leave the previous pointer canonical.
 
 ### Failure response
 
-Raise an error, leave the current published product unchanged, and record the
+Raise an error and leave `latest.json` unchanged. A complete bundle finalized
+before a failed pointer swap may remain as noncanonical evidence; incomplete
+staging directories must not be addressable through the pointer. Record the
 blocked or failed run in the operational ledger.
 
 ### Change history
@@ -179,3 +189,4 @@ blocked or failed run in the operational ledger.
 | Date | Change | Authority |
 |---|---|---|
 | 2026-07-24 | Recorded implemented publication boundary | `docs/forecast-operations.md` |
+| 2026-08-14 | Replaced mutable multi-file publication with immutable release bundles and one canonical pointer | Authenticated maintainer approval for this adaptation |

@@ -1,18 +1,40 @@
 # Production operations runbook
 
-## Forecast archive and latest release
+## Immutable forecast releases and latest pointer
 
-Every successful forecast publication archives the previously published Parquet and lineage pair under:
+Every successful forecast publication creates a new immutable bundle under:
 
 ```text
-data/processed/forecasts/archive/
-  forecast_date=YYYY-MM-DD/
-    generated_at=YYYYMMDDTHHMMSSZ/
+data/processed/forecasts/
+  releases/
+    <release-id>/
       forecast.parquet
       lineage.json
+      gate.json
+  latest.json
 ```
 
-`data/processed/forecasts/latest.json` is the stable pointer to the current forecast, lineage, model checksum, output checksum, and generation time. A failed publication never changes the archive, current product, or latest pointer.
+`data/processed/forecasts/latest.json` is the only canonical mutable publication
+file. It names one release ID and relative bundle paths, plus SHA-256 digests for
+forecast, lineage, and gate. Consumers reject missing, escaped, incomplete,
+tampered, or failed-gate bundles before reading forecast data.
+
+Publication writes forecast, lineage, and gate inside a private pending
+directory, finalizes the directory as an immutable release, verifies a staged
+pointer against the complete bundle, and then atomically replaces `latest.json`.
+A failure before that last replace leaves the previous pointer canonical. A
+failure after bundle finalization but before pointer replacement may leave a
+complete orphan bundle; it is noncanonical and safe to retain for audit or later
+manual cleanup. No automatic cleanup deletes visible release history.
+
+The former mutable paths
+`data/processed/forecasts/hourly_zone_demand_forecast.parquet` and
+`data/processed/lineage/hourly_zone_demand_forecast.json` are migration-era
+legacy files. Publication no longer updates them, and operational consumers must
+not treat them as current. The single-pointer switch removes the multi-file
+concurrent-read window when the publication root and rename target are on the
+same filesystem with atomic rename semantics. Storage durability across power
+loss remains a property of the host filesystem and platform.
 
 ## Operational run ledger
 
@@ -26,7 +48,7 @@ python -m src.nyc_taxi.operations model --first-test 2024-07 --max-iter 60
 python -m src.nyc_taxi.operations promote --candidate <candidate.joblib> --report <rolling_backtest.json> --approval-file <path>
 python -m src.nyc_taxi.operations --ledger <staging-output>/runs.sqlite forecast-candidate --input <cutoff-gold.parquet> --model <candidate.joblib> --model-report <rolling_backtest.json> --output-dir <staging-output>
 python -m src.nyc_taxi.operations forecast --horizon 24 --approval-file <path>
-python -m src.nyc_taxi.operations monitor --forecast <forecast.parquet> --actual <gold.parquet> --output <monitoring.json>
+python -m src.nyc_taxi.operations monitor --actual <gold.parquet> --output <monitoring.json>
 ```
 
 `forecast-candidate` is a staging-only evaluation path. Its output directory is
@@ -34,7 +56,9 @@ restricted to `data/processed/staging/`; it validates the candidate against the
 release report and does not require or consume production publication approval.
 Use a staging ledger for this command. The production `forecast` command remains
 the only operational publication path and retains its separate approval,
-archive, lineage, and latest-pointer behavior.
+immutable lineage, release-bundle, and latest-pointer behavior. For an isolated
+staging closure only, `monitor --forecast <forecast.parquet>` bypasses canonical
+pointer resolution and scores the explicitly named candidate.
 
 Model validation without an approval writes `candidate.joblib` and stops before
 production replacement. The separate `promote` command accepts an already
@@ -92,9 +116,13 @@ path handling without executing a production write.
 - Model promotion first retains the current production bytes in a checksum-keyed
   archive. The archive and production copy both use temporary writes and
   checksum verification before atomic replacement.
-- Forecast production files use temporary writes and atomic replacement after
-  their release gates pass.
-- Forecast versions are immutable in the archive.
+- Forecast production writes a complete immutable release bundle after its
+  gates pass, then changes canonical state with one atomic `latest.json`
+  replacement.
+- Monitoring defaults to the latest pointer and verifies bundle paths, digests,
+  lineage identity, and the passing gate before reading the forecast.
+- Finalized forecast release directories are immutable history; orphan bundles
+  are noncanonical and are not selected by consumers.
 
 ## Scheduling
 

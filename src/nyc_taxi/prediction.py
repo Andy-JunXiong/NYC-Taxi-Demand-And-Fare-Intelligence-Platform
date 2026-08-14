@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import duckdb
 import joblib
@@ -17,25 +17,7 @@ from .approvals import require_approval
 from .download import sha256_file
 from .forecast import LAGS, MODEL_FEATURES, ROLLING_WINDOWS, _us_holiday, load_hourly
 from .events import event_features
-
-
-def archive_current(output: Path, lineage_output: Path) -> Path | None:
-    """Archive the currently published immutable pair before replacement."""
-    if not output.is_file() or not lineage_output.is_file():
-        return None
-    lineage = json.loads(lineage_output.read_text(encoding="utf-8"))
-    generated = datetime.fromisoformat(lineage["generated_at"]).astimezone(timezone.utc)
-    forecast_date = str(lineage["forecast_start"])[:10]
-    stamp = generated.strftime("%Y%m%dT%H%M%SZ")
-    archive = output.parent / "archive" / f"forecast_date={forecast_date}" / f"generated_at={stamp}"
-    archive.mkdir(parents=True, exist_ok=True)
-    archived_output = archive / "forecast.parquet"
-    archived_lineage = archive / "lineage.json"
-    if not archived_output.exists():
-        shutil.copy2(output, archived_output)
-    if not archived_lineage.exists():
-        shutil.copy2(lineage_output, archived_lineage)
-    return archive
+from .releases import LATEST_SCHEMA_VERSION, load_latest_release
 
 
 def _future_features(zones: np.ndarray, timestamp: pd.Timestamp, history: dict[int, list[float]], airport_ids: set[int]) -> pd.DataFrame:
@@ -141,16 +123,75 @@ def generate_forecast(
     return frame, gate, generated_at, len(zones)
 
 
-def _write_parquet_atomic(frame: pd.DataFrame, output: Path) -> None:
+def _stage_parquet(frame: pd.DataFrame, output: Path) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".part")
+    temporary.unlink(missing_ok=True)
     connection = duckdb.connect()
     try:
         connection.register("forecast", frame)
         connection.execute(f"COPY forecast TO '{temporary.resolve().as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
     finally:
         connection.close()
-    temporary.replace(output)
+    return temporary
+
+
+def _write_parquet_atomic(frame: pd.DataFrame, output: Path) -> None:
+    temporary = _stage_parquet(frame, output)
+    try:
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _stage_text(output: Path, content: str) -> Path:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".part")
+    temporary.unlink(missing_ok=True)
+    try:
+        temporary.write_text(content, encoding="utf-8")
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return temporary
+
+
+def _previous_release_id(latest_path: Path) -> str | None:
+    """Return the current release ID, allowing one migration from the legacy pointer."""
+    if not latest_path.is_file():
+        return None
+    try:
+        pointer = json.loads(latest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Existing forecast latest pointer is invalid: {latest_path}") from exc
+    if not isinstance(pointer, dict):
+        raise ValueError("Existing forecast latest pointer must be a JSON object")
+    if pointer.get("schema_version") == LATEST_SCHEMA_VERSION:
+        return str(load_latest_release(latest_path)["release_id"])
+    legacy_fields = {"forecast", "lineage", "output_sha256"}
+    if "schema_version" not in pointer and legacy_fields.issubset(pointer):
+        return "legacy"
+    raise ValueError("Existing forecast latest pointer has an unsupported schema")
+
+
+def _remove_pending_release(path: Path) -> None:
+    """Remove only the known files from one unpublished staging directory."""
+    for name in (
+        "forecast.parquet.part",
+        "forecast.parquet",
+        "lineage.json.part",
+        "lineage.json",
+        "gate.json.part",
+        "gate.json",
+    ):
+        (path / name).unlink(missing_ok=True)
+    try:
+        path.rmdir()
+    except OSError:
+        pass
 
 
 def write_forecast_candidate(
@@ -214,6 +255,12 @@ def publish_forecast(
     horizon: int = 24,
     approval_file: Path,
 ) -> dict:
+    """Publish a complete immutable release, then atomically switch its pointer.
+
+    ``output`` and ``lineage_output`` locate the legacy publication boundary but
+    are intentionally not replaced. The only canonical mutable file is
+    ``output.parent / 'latest.json'``.
+    """
     approval = require_approval(
         approval_file, action="forecast_publication", artifact_sha256=sha256_file(model_path)
     )
@@ -223,37 +270,96 @@ def publish_forecast(
         horizon=horizon,
         expected_model_sha256=approval["artifact_sha256"],
     )
-    gate_output.parent.mkdir(parents=True, exist_ok=True)
-    gate_output.write_text(json.dumps(gate, indent=2) + "\n", encoding="utf-8")
+    gate_temporary = _stage_text(gate_output, json.dumps(gate, indent=2) + "\n")
+    try:
+        gate_temporary.replace(gate_output)
+    finally:
+        gate_temporary.unlink(missing_ok=True)
     if not gate["passed"]:
         raise RuntimeError("Forecast publication gate failed")
-    archived = archive_current(output, lineage_output)
-    _write_parquet_atomic(frame, output)
-    lineage = {
-        "product": "hourly_zone_demand_forecast", "generated_at": generated_at.isoformat(),
-        "forecast_start": str(frame["forecast_hour"].min()), "forecast_end": str(frame["forecast_hour"].max()),
-        "horizon_hours": horizon, "zones": zone_count, "rows": len(frame),
-        "source_gold": hourly_path.as_posix(), "source_gold_sha256": sha256_file(hourly_path),
-        "production_model": model_path.as_posix(), "production_model_sha256": sha256_file(model_path),
-        "output": output.as_posix(), "output_sha256": sha256_file(output), "gate": gate,
-        "previous_release_archive": archived.as_posix() if archived else None,
-        "publication_approval": {
-            "reviewer": approval["reviewer"],
-            "approved_at": approval["approved_at"],
-            "model_sha256": approval["artifact_sha256"],
-        },
-    }
-    lineage_output.parent.mkdir(parents=True, exist_ok=True)
-    lineage_output.write_text(json.dumps(lineage, indent=2) + "\n", encoding="utf-8")
-    latest = {
-        "forecast": output.as_posix(), "lineage": lineage_output.as_posix(),
-        "generated_at": lineage["generated_at"], "forecast_start": lineage["forecast_start"],
-        "model_sha256": lineage["production_model_sha256"], "output_sha256": lineage["output_sha256"],
-    }
+
+    publication_root = output.parent
     latest_path = output.parent / "latest.json"
-    latest_temporary = latest_path.with_suffix(".json.part")
-    latest_temporary.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
-    latest_temporary.replace(latest_path)
+    previous_release_id = _previous_release_id(latest_path)
+    releases_root = publication_root / "releases"
+    releases_root.mkdir(parents=True, exist_ok=True)
+    pending_release = releases_root / f".pending-{uuid4().hex}"
+    pending_release.mkdir()
+    bundle_visible = False
+    latest_temporary: Path | None = None
+    try:
+        pending_forecast = pending_release / "forecast.parquet"
+        forecast_temporary = _stage_parquet(frame, pending_forecast)
+        forecast_temporary.replace(pending_forecast)
+        output_sha256 = sha256_file(pending_forecast)
+        release_id = (
+            generated_at.strftime("%Y%m%dT%H%M%S%fZ")
+            + f"-{output_sha256[:12]}"
+        )
+        final_release = releases_root / release_id
+        if final_release.exists():
+            raise FileExistsError(f"Forecast release already exists: {final_release}")
+        final_forecast = final_release / "forecast.parquet"
+        final_lineage = final_release / "lineage.json"
+        final_gate = final_release / "gate.json"
+        lineage = {
+            "product": "hourly_zone_demand_forecast", "status": "published",
+            "release_id": release_id, "generated_at": generated_at.isoformat(),
+            "forecast_start": str(frame["forecast_hour"].min()), "forecast_end": str(frame["forecast_hour"].max()),
+            "horizon_hours": horizon, "zones": zone_count, "rows": len(frame),
+            "source_gold": hourly_path.as_posix(), "source_gold_sha256": sha256_file(hourly_path),
+            "production_model": model_path.as_posix(), "production_model_sha256": sha256_file(model_path),
+            "output": final_forecast.as_posix(), "output_sha256": output_sha256, "gate": gate,
+            "release_path": final_release.as_posix(),
+            "canonical_pointer": latest_path.as_posix(),
+            "previous_release_id": previous_release_id,
+            "legacy_output": output.as_posix(),
+            "legacy_lineage": lineage_output.as_posix(),
+            "publication_approval": {
+                "reviewer": approval["reviewer"],
+                "approved_at": approval["approved_at"],
+                "model_sha256": approval["artifact_sha256"],
+            },
+        }
+        lineage_temporary = _stage_text(
+            pending_release / "lineage.json",
+            json.dumps(lineage, indent=2) + "\n",
+        )
+        lineage_temporary.replace(pending_release / "lineage.json")
+        gate_temporary = _stage_text(
+            pending_release / "gate.json",
+            json.dumps(gate, indent=2) + "\n",
+        )
+        gate_temporary.replace(pending_release / "gate.json")
+        lineage_sha256 = sha256_file(pending_release / "lineage.json")
+        gate_sha256 = sha256_file(pending_release / "gate.json")
+
+        pending_release.rename(final_release)
+        bundle_visible = True
+        relative_release = final_release.relative_to(publication_root).as_posix()
+        latest = {
+            "schema_version": LATEST_SCHEMA_VERSION,
+            "product": "hourly_zone_demand_forecast",
+            "release_id": release_id,
+            "release": relative_release,
+            "forecast": f"{relative_release}/forecast.parquet",
+            "lineage": f"{relative_release}/lineage.json",
+            "gate": f"{relative_release}/gate.json",
+            "generated_at": lineage["generated_at"], "forecast_start": lineage["forecast_start"],
+            "model_sha256": lineage["production_model_sha256"], "output_sha256": output_sha256,
+            "lineage_sha256": lineage_sha256, "gate_sha256": gate_sha256,
+        }
+        latest_temporary = _stage_text(
+            latest_path,
+            json.dumps(latest, indent=2) + "\n",
+        )
+        load_latest_release(latest_temporary)
+        latest_temporary.replace(latest_path)
+    finally:
+        if latest_temporary is not None:
+            latest_temporary.unlink(missing_ok=True)
+        if not bundle_visible:
+            _remove_pending_release(pending_release)
     return lineage
 
 

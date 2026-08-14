@@ -47,7 +47,7 @@ Governed Gold zone-hour demand
         ↓
 Global / airport / event-aware models
         ↓
-Approval → publication → monitoring → archive
+Approval → immutable release → latest pointer → monitoring
 ```
 
 - Downloads bounded monthly inputs with resumable transfers and checksum lineage.
@@ -56,7 +56,7 @@ Approval → publication → monitoring → archive
 - Evaluates forecasts with chronological expanding windows rather than random splits.
 - Routes airport and known-event demand through specialist models.
 - Protects publication with approval, quality, model, and monitoring gates.
-- Preserves failed releases and last-known-good artifacts for audit and recovery.
+- Preserves immutable release history and the last-known-good pointer for audit and recovery.
 
 ## Decision boundary
 
@@ -224,7 +224,7 @@ The subsequent event-calendar expansion, specialist model, event baselines, and
 approved replacement are documented in
 [`docs/event-model-release-2025-01.md`](docs/event-model-release-2025-01.md).
 
-Audited operation commands, automatic forecast archives, failure recovery,
+Audited operation commands, immutable forecast releases, failure recovery,
 scheduling, and the small-data CI workflow are documented in
 [`docs/production-operations-runbook.md`](docs/production-operations-runbook.md).
 
@@ -235,6 +235,17 @@ environment work still outstanding are tracked in
 [2026-08-02 development record](docs/development-log/2026-08-02.md) separates
 today's completed work from external operations, and the
 [remaining development plan](docs/development-plan.md) orders the next slices.
+Controlled approval, digest, validation, and routing outcomes are summarized in
+the [policy intervention evidence matrix](docs/policy-intervention-evidence.md).
+A host-neutral [sandboxed Agent Operator E2E](tests/agent_operator_e2e/README.md)
+verifies staging-only candidate preparation and the stop-before-approval boundary.
+The first fresh-context Codex run is recorded as
+[dated Agent Operator evidence](docs/agent-operator-e2e-evidence-2026-08-14.md).
+The handled write/replace failure behavior is recorded in the
+[publication failure-safety audit](docs/publication-failure-safety-audit-2026-08-14.md).
+The combined implementation scope, evidence, validation, and remaining
+cross-provider gap are summarized in the
+[2026-08-14 development record](docs/development-log/2026-08-14.md).
 
 ### AgentGov governance visibility
 

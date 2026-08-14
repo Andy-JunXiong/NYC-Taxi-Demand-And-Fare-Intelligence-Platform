@@ -12,6 +12,10 @@ import numpy as np
 import pandas as pd
 
 from .forecast import AIRPORT_ZONE_IDS, metrics
+from .releases import load_latest_release
+
+
+LATEST_FORECAST_PATH = Path("data/processed/forecasts/latest.json")
 
 
 def _segments(frame: pd.DataFrame, column: str, limit: int | None = None, min_actual: float = 0) -> list[dict]:
@@ -72,12 +76,33 @@ def score_frames(forecast: pd.DataFrame, actual: pd.DataFrame) -> dict:
     }
 
 
-def monitor(forecast_path: Path, actual_path: Path, output: Path) -> dict:
+def resolve_latest_forecast(latest_path: Path) -> tuple[Path, dict]:
+    """Resolve a verified canonical forecast and its audit identity."""
+    release = load_latest_release(latest_path)
+    source = {
+        "release_id": release["release_id"],
+        "latest_pointer": latest_path.as_posix(),
+        "generated_at": release.get("generated_at"),
+        "model_sha256": release.get("model_sha256"),
+        "output_sha256": release["output_sha256"],
+    }
+    return release["forecast_path"], source
+
+
+def monitor(
+    forecast_path: Path,
+    actual_path: Path,
+    output: Path,
+    *,
+    source_release: dict | None = None,
+) -> dict:
     connection = duckdb.connect()
     forecast = connection.execute(f"SELECT * FROM read_parquet('{forecast_path.resolve().as_posix()}')").fetchdf()
     actual = connection.execute(f"SELECT pickup_zone_id, pickup_hour, trip_count FROM read_parquet('{actual_path.resolve().as_posix()}')").fetchdf()
     connection.close()
     report = {"generated_at": datetime.now(timezone.utc).isoformat(), **score_frames(forecast, actual)}
+    if source_release is not None:
+        report["source_release"] = source_release
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -85,11 +110,21 @@ def monitor(forecast_path: Path, actual_path: Path, output: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Monitor matured NYC demand forecasts")
-    parser.add_argument("--forecast", type=Path, default=Path("data/processed/forecasts/hourly_zone_demand_forecast.parquet"))
+    parser.add_argument("--forecast", type=Path)
+    parser.add_argument("--latest", type=Path, default=LATEST_FORECAST_PATH)
     parser.add_argument("--actual", type=Path, default=Path("data/processed/hourly_zone_demand.parquet"))
     parser.add_argument("--output", type=Path, default=Path("data/processed/monitoring/forecast-performance.json"))
     args = parser.parse_args(argv)
-    report = monitor(args.forecast, args.actual, args.output)
+    source_release = None
+    forecast_path = args.forecast
+    if forecast_path is None:
+        forecast_path, source_release = resolve_latest_forecast(args.latest)
+    report = monitor(
+        forecast_path,
+        args.actual,
+        args.output,
+        source_release=source_release,
+    )
     print(json.dumps(report, indent=2))
     return 2 if report.get("status") == "scored" and not report["drift"]["passed"] else 0
 
