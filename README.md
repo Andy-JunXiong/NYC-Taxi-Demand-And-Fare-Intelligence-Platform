@@ -229,12 +229,14 @@ scheduling, and the small-data CI workflow are documented in
 [`docs/production-operations-runbook.md`](docs/production-operations-runbook.md).
 
 Repository-native AI/ML governance for the hourly zone-demand forecast is
-configured under `governance/` and `evaluation/`. The dated human decisions and
-environment work still outstanding are tracked in
-[`docs/governance-todo.md`](docs/governance-todo.md). The
-[2026-08-02 development record](docs/development-log/2026-08-02.md) separates
-today's completed work from external operations, and the
-[remaining development plan](docs/development-plan.md) orders the next slices.
+configured under `governance/` and `evaluation/`. Start with the
+[current development status](docs/current-development-status.md) for implemented
+reality, validation state, active risks, and the single recommended next slice.
+The [development plan](docs/development-plan.md) contains durable P0–P5 direction,
+while the [governance follow-up register](docs/governance-todo.md) contains only
+specialized unresolved AgentGov decisions. Dated work remains evidence under
+[`docs/development-log/`](docs/development-log/); it does not redefine the plan
+or agent authority.
 Controlled approval, digest, validation, and routing outcomes are summarized in
 the [policy intervention evidence matrix](docs/policy-intervention-evidence.md).
 A host-neutral [sandboxed Agent Operator E2E](tests/agent_operator_e2e/README.md)
@@ -353,20 +355,14 @@ The full dataset is large. Expect substantial memory use and long execution time
 - RMSE alone does not reveal performance differences by borough, time period, airport trip, or fare range.
 - The earning recommendations do not fully model idle time, fuel, tolls, maintenance, driver availability, repositioning costs, or competition between vehicles.
 
-## Suggested next steps
+## Current development status
 
-- Define and human-review how daily recursive stability evidence affects model
-  release decisions; do not infer a new threshold from one May shadow run.
-- Investigate the remaining daily losses and horizon-specific degradation before
-  training another candidate. Keep the current candidate on `HOLD`.
-- Establish a reproducible model-package identity before treating a rebuilt
-  `joblib` file as equivalent to a previously reviewed SHA-256 artifact.
-- Investigate the non-blocking 2025 negative-fare warnings before treating fare
-  intelligence as an operational product.
-- Complete the Sydney evidence requirement with at least two distinct governed
-  historical captures before considering its release gate complete.
-- Verify the persistent runner and checkout-external approval retention path
-  before authorizing scheduled operations.
+The canonical current-state entry point is
+[`docs/current-development-status.md`](docs/current-development-status.md). It
+distinguishes Codex-run, user-reported, pending, and incomplete validation and
+names one recommended next slice. Long-term priorities and decision gates remain
+in [`docs/development-plan.md`](docs/development-plan.md), so this README does not
+duplicate a fast-changing backlog.
 
 ## License
 

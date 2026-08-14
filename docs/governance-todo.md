@@ -1,43 +1,54 @@
-# Governance follow-up
+# Governance follow-up register
 
-## Next review
+This is a specialized register for unresolved AgentGov governance decisions. It
+is not the general roadmap, current project status, or a source of agent
+permissions. See [`development-plan.md`](development-plan.md) for durable
+direction, [`current-development-status.md`](current-development-status.md) for
+current reality, and [`../AGENTS.md`](../AGENTS.md) for authority.
 
-- Target date: 2026-07-25
+## Owner and review trigger
+
 - Owner: NYC Taxi platform maintainers
-- Status: In progress
+- Review when capability scope, runtime callers, governance evidence,
+  dependencies, or AgentGov release semantics change.
+- Current deterministic state: no AgentGov failures in the latest recorded
+  2026-08-14 local check.
 
-## Decisions and work remaining
+## Active decisions
 
-1. **Resolved 2026-07-25:** production model promotion and forecast publication
-   require separate human approval records bound to the exact artifact checksum.
-   Scheduled operations stop after model validation.
-2. **Resolved 2026-08-01:** the complete-grid and JFK/LaGuardia routing seeds
-   are reviewed, the complete-grid golden example is approved, and the
-   negative-prediction failure case has a publication-preservation regression
-   test. The first evaluation baseline is recorded as `baseline_ready`.
-3. **Resolved 2026-08-01:** Python 3.11 is declared in `.python-version`,
-   matching CI, and the test suite has been verified in a side-by-side Python
-   3.11.9 environment. The existing `.venv` was preserved.
-4. Decide whether to configure tracked capability artifacts and whether the
-   empty declared capability-dependency graph is complete.
+1. Decide whether tracked capability artifacts would provide useful,
+   reproducible evidence rather than generated noise.
+2. Reconfirm that the declared empty capability-dependency graph reflects the
+   real runtime and organizational dependency boundary.
+3. Keep capability callers, contracts, provenance, control evidence, and
+   evaluation references aligned when governed runtime paths change.
+4. Add reviewed evaluation cases only when they exercise a real decision
+   boundary; do not inflate case counts without behavioral value.
+
+## Resolved decisions
+
+- Model promotion and forecast publication require separate human approval
+  records bound to exact artifact checksums. Scheduled operations stop after
+  model validation unless a later action is separately authorized.
+- Complete-grid and JFK/LaGuardia routing seeds are reviewed, the complete-grid
+  golden example is approved, and negative-prediction preservation has a
+  regression test.
+- Python 3.11 is the declared runtime, aligned with CI and the locked development
+  environment.
+- Agent instructions distinguish deterministic checks from advisory findings
+  and prohibit tests or governance evidence from authorizing production action.
 
 ## Safety boundary
 
 Passing AgentGov, tests, static checks, model gates, or publication gates is
-evidence only. It does not authorize running production workflows, replacing
-production artifacts, deploying, scheduling, or mutating external systems.
+evidence only. It does not authorize production workflows, artifact replacement,
+deployment, scheduling, or external-system mutation. This register cannot
+override `AGENTS.md`.
 
-## Suggested verification
+## Verification
 
 ```powershell
-$env:PYTHONPATH = (Resolve-Path 'agent-governance-starter\src').Path
-python -m agentgov check repository .
-python -m agentgov check agent-skills agent-skills
+agentgov check repository .
+agentgov check agent-skills agent-skills
 git diff --check
-```
-
-After an approved Python environment is available:
-
-```powershell
-python -m pytest -q
 ```

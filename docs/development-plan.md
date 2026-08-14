@@ -1,149 +1,152 @@
-# NYC Taxi remaining development plan
+# NYC Taxi development plan
 
-Updated 2026-08-09. Completed work stays in the development record; this page
-contains the ordered work that remains.
+Updated 2026-08-14. This document contains durable direction, priority tracks,
+and decision gates. It does not report current implementation status, recent
+session history, or permissions. See
+[`current-development-status.md`](current-development-status.md) for current
+reality and [`../AGENTS.md`](../AGENTS.md) for execution authority.
 
-## Product delivery status
+## Product direction
 
-The project is a governed pre-production MVP preparing for an operational
-pilot, not a continuously scheduled production service.
+Develop a reproducible taxi-demand and fare-intelligence platform that turns
+governed NYC and Sydney data into auditable analytics, model evaluation, and
+bounded forecast products. Advance from a governed pre-production MVP toward an
+operational pilot without coupling evidence generation to model promotion,
+forecast publication, deployment, or scheduling.
 
-- Product Phase 1, repository closeout: implementation and local validation are
-  complete. The current repository closeout has separate human authorization
-  for commit and push to `main`.
-- Product Phase 2, continuous demand-data staging: complete locally for all 53
-  months from 2022-01 through 2026-05. The demand quality gate passed every
-  partition. Negative-fare warnings for 2025-01 through 2025-11 are
-  non-blocking for demand and remain open for any future fare product.
-- Product Phase 3, controlled release: the 22-fold staging backtest and May 1
-  staging forecast/drift gates passed. Daily recursive shadow evaluation is now
-  implemented as observational evidence that cannot promote or publish an
-  artifact. A Memorial Day-aware v2 improved May WAPE from 23.60% to 22.59% and
-  daily drift passes from 20/31 to 21/31, but daily baseline wins fell from
-  19/31 to 18/31. Candidate v2 SHA-256
-  `29354b382cd6761c3a307c76d821bb1855354cc87eb3c8f9b020cdf83134e334`
-  remains a local staging identity, unpromoted and unpublished, with a project
-  decision of `HOLD`.
+The central product risk is an apparently successful aggregate model hiding
+unstable daily, event, market, or recursive-horizon behavior. Product progress
+therefore prioritizes decision-quality evidence, exact artifact identity,
+fail-closed publication, and explicit human release decisions.
 
-The next product slice is to define and review the decision boundary for daily
-24-hour recursive stability, then investigate the remaining losing days and
-horizon degradation. Promotion is not the current next action.
-Forecast generation, model promotion, production publication, and monitoring
-remain distinct governed steps; publication still requires its own approval
-bound to the promoted model SHA. The evidence and exact stop point are recorded in
-[`development-log/2026-08-09.md`](development-log/2026-08-09.md).
+## P0 — define recursive-stability decision boundaries
 
-## Immediate next product slice
+Establish how daily 24-hour recursive evidence affects model release decisions
+before training or promoting another candidate.
 
-1. Human-review whether daily win rate, worst-day degradation, and daily drift
-   pass rate should become release criteria, advisory evidence, or both. Do not
-   derive thresholds from the May sample alone.
-2. Diagnose the 13 v2 days that do not beat the previous-week baseline and the
-   remaining recursive-horizon degradation using only pre-forecast information.
-3. Establish a deterministic model-package identity or explicitly version the
-   serialization environment. Re-dumping an equivalent loaded `joblib` object
-   changed its SHA during the 2026-08-09 audit, so rebuilt bytes must not inherit
-   a prior artifact approval.
-4. Train and shadow-evaluate a new candidate only after the intended decision
-   boundary and artifact identity are reviewed.
+Outcomes:
 
-Any change to model release, prediction, monitoring, or publication gates
-requires specific approval for the affected core files. Stop if a proposed
-change would silently relax an existing threshold or couple observation to
-promotion/publication.
-
-## P0 — close the approval-gate slice
-
-The non-core closure completed on 2026-08-05: the repository now has an inert,
-checked approval template; `rolling_backtest` integration coverage for the
-awaiting, approved, checksum-mismatch, and failed-model-gate paths; and
-regressions proving malformed JSON and interrupted copies preserve production
-and remove partial files.
-
-The retention-location decision was documented on 2026-08-09. Exact approval
-record bytes are retained outside the repository checkout under
-`C:\ProgramData\NYCTaxi\approval-records\`, with pending, consumed, and rejected
-states linked to the operational ledger run ID. This documentation does not
-create the directory, change its permissions, or authorize an external action.
-
-1. When self-hosted runner setup is separately authorized, create the approved
-   retention root and apply the documented Windows filesystem permissions.
-2. Verify workflow-dispatch behavior on the self-hosted Windows runner without
-   executing production publication, including safe handling of the
-   checkout-external approval path.
-3. If either remaining check requires a core-file change, obtain specific human
-   approval for the proposed files and validation plan before editing.
+1. classify daily win rate, worst-day degradation, daily drift pass rate, and
+   horizon degradation as release criteria, advisory evidence, or diagnostic
+   evidence;
+2. diagnose losing days and horizon degradation using only information
+   available before each forecast;
+3. prevent threshold fitting to one observed month; and
+4. train and shadow-evaluate a new candidate only after the decision boundary
+   and model-package identity are reviewed.
 
 Acceptance signals:
 
-- only the exact approved bytes can replace production;
-- rejected or interrupted operations preserve the prior artifact;
-- the workflow exposes a clear blocked status and never silently continues;
-- approval evidence is attributable, contains no secret, retains its exact
-  original bytes, and is not reused after a final run state.
+- the decision memo exposes metric tradeoffs and sample limitations;
+- deterministic gates remain separate from advisory judgment;
+- no threshold is silently weakened or introduced from one sample; and
+- promotion and publication remain separately approved actions.
 
-## P1 — finish declared governance coverage
+## P1 — close controlled-release operational readiness
 
-1. Decide whether to configure tracked capability artifacts.
-2. Reconfirm that the declared empty capability-dependency graph is complete.
-3. Keep control applicability and evidence references aligned as runtime paths
-   evolve.
-4. Add new reviewed evaluation cases only when they change a decision boundary,
-   not to inflate a case count.
+Complete the environment-dependent approval and runner checks without executing
+a production mutation.
+
+Outcomes:
+
+1. establish deterministic model-package identity or explicitly version the
+   serialization environment;
+2. create the approved external approval-record retention root and permissions
+   only when separately authorized;
+3. verify workflow-dispatch handling of checkout-external approval paths on the
+   persistent Windows runner without promoting or publishing; and
+4. rehearse blocked and failed approval states with attributable ledger evidence.
+
+Acceptance signals:
+
+- only exact approved bytes can replace production;
+- rebuilt bytes cannot inherit an earlier approval;
+- rejected or interrupted operations preserve the previous artifact;
+- approval records remain attributable, unchanged, non-secret, and single-use;
+  and
+- the workflow exposes a clear blocked state and never silently continues.
+
+## P2 — finish declared governance coverage
+
+Keep governance declarations aligned with real runtime paths and evidence.
+
+Outcomes:
+
+1. decide whether to configure tracked capability artifacts;
+2. reconfirm that the declared empty capability-dependency graph is complete;
+3. keep control applicability and evidence references aligned as code evolves;
+   and
+4. add reviewed evaluation cases only when they exercise a decision boundary.
 
 Acceptance signals:
 
 - AgentGov has no deterministic failure;
-- remaining WARN and ADVISORY findings have named owners and honest rationale;
-- no governance coverage percentage is claimed without a denominator and
-  applicability model.
+- WARN and ADVISORY findings have named owners and honest rationale;
+- coverage claims state their denominator and applicability model; and
+- static governance results are not presented as proof of control effectiveness.
 
-## P2 — adopt AgentGov 0.3 after stable release
+## P3 — evolve AgentGov after a stable release
 
-1. Wait for an approved, published AgentGov 0.3 release and migration-declared
-   manifest.
-2. Generate the exact two-workflow migration review inside NYC.
-3. Human-review the permission diff and current/target dry-run evidence.
-4. Merge the one-time migration only after the NYC project suite and governance
-   checks pass.
-5. Confirm the first trusted-main run reports `baseline_missing`, then confirm a
-   later eligible run restores the exact baseline and reports an honest state.
-6. Verify PR authors see only their change and required action while maintainers
-   see trend and upgrade administration on trusted runs.
+Adopt a future AgentGov release only through an explicit, evidence-backed
+migration.
 
-Stop conditions:
+Outcomes:
 
-- undeclared repository migration, unexpected write permission, workflow drift,
-  evidence digest mismatch, deterministic regression, or missing approval.
+1. wait for an approved published release and migration-declared manifest;
+2. generate the exact workflow and permission diff inside this repository;
+3. review current and target dry-run evidence before merge;
+4. verify trusted-main baseline initialization and later restoration; and
+5. distinguish workflow-only governance changes from NYC business-code changes.
 
-## P3 — demonstrate development-time value
+Stop on undeclared migration, unexpected write permission, workflow drift,
+evidence-digest mismatch, deterministic regression, or missing approval.
 
-1. Replay selected historical NYC changes through the proposed local AgentGov
-   development check and the GitHub PR check.
-2. Record which issue was discovered locally, which was discovered only in CI,
-   false positives, and the action each finding caused.
-3. Use the next real NYC change as the preferred live pilot; do not create a
-   meaningless PR only to make the dashboard change.
-4. Join project-test or runtime evidence only when the source and denominator
-   are explicit. Do not claim that AgentGov caused a quality outcome.
+## P4 — demonstrate development-time value
+
+Use real changes rather than synthetic activity to evaluate whether governance
+feedback improves developer decisions.
+
+Outcomes:
+
+1. replay selected historical changes through local and GitHub checks;
+2. record which issue was discovered locally, only in CI, or was a false
+   positive, plus the action it caused;
+3. use the next real change as the preferred live pilot; and
+4. join project-test or runtime evidence only when source and denominator are
+   explicit.
 
 Acceptance signals:
 
-- developers receive relevant governance constraints before opening a PR;
-- GitHub independently reproduces deterministic facts as the final backstop;
-- `unchanged` is not presented as a benefit;
-- a workflow-only upgrade is distinguished from a change to NYC business code.
+- developers receive relevant constraints before opening a pull request;
+- GitHub independently reproduces deterministic facts as a backstop;
+- `unchanged` is not presented as a benefit; and
+- no causal quality claim is made without supporting evidence.
 
-## P4 — operational readiness
+## P5 — broader product and pilot readiness
 
-- register and verify the persistent `nyc-taxi` self-hosted runner when real
-  scheduled operations are authorized;
-- rehearse recovery for partial download, failed validation, failed promotion,
-  rejected publication, and monitoring alert states;
-- keep model, data, forecast, credential, and approval retention policies
-  explicit before production use;
-- require a separate human decision for every deployment or external production
-  action.
+Prepare demand, fare, Sydney, and operations tracks for an explicitly authorized
+pilot.
 
-No item on this page authorizes model promotion, forecast publication,
-deployment, scheduled production execution, or AgentGov release activity.
+Outcomes:
+
+- resolve negative-fare warnings before treating fare intelligence as an
+  operational product;
+- complete Sydney's distinct governed-source evidence requirement;
+- register and verify the persistent `nyc-taxi` runner when authorized;
+- rehearse recovery for download, validation, promotion, publication, and
+  monitoring failures; and
+- make retention policy explicit for data, models, forecasts, approvals, and
+  credentials.
+
+## Cross-cutting decision rules
+
+- Historical notebook results are evidence, not current operational advice.
+- Observational or shadow evidence cannot promote or publish an artifact.
+- Model promotion, forecast publication, deployment, and scheduling remain
+  separate decisions.
+- A passing test or gate is evidence only; it never expands authority.
+- Current completion, pending validation, and the next executable slice belong
+  in `current-development-status.md`, not in this plan.
+
+Nothing in this document authorizes a core-file edit, production operation,
+external mutation, commit, push, release, or deployment.

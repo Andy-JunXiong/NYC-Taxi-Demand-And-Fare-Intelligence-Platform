@@ -236,6 +236,34 @@ no responsible follow-on feature, say so and explain why. Recommending a next
 feature never authorizes implementation, external writes, publication,
 deployment, or any other consequential action.
 
+### Development-document lifecycle
+
+Keep execution rules, strategy, current state, and historical evidence in
+separate documents:
+
+- `AGENTS.md` is the sole authority for agent permissions, safety boundaries,
+  development workflow, and handoff requirements.
+- `docs/development-plan.md` contains the durable product direction, priority
+  tracks, and decision gates. Update it only when the human changes a top-level
+  direction or priority.
+- `docs/current-development-status.md` is the canonical snapshot of implemented
+  reality, recent completion, validation state, active risks, and the single
+  recommended next slice. Update it at every meaningful feature closeout.
+- `docs/development-log/YYYY-MM-DD.md` is dated, append-only evidence of session
+  work, decisions, validation, remaining work, and delivery results. It must not
+  redefine permissions or become the current roadmap.
+
+Do not duplicate authority text across these layers. Status and logs link to the
+applicable `AGENTS.md` rule instead of restating or modifying it. A closeout
+request such as "today's work is done", "close out", or "update status"
+authorizes local updates to the current-status document and the applicable dated
+development log. It does not by itself authorize a plan priority change,
+commit, push, publication, deployment, or another external mutation.
+
+Classify validation explicitly as `Codex-run validation`, `user-reported
+validation`, `pending validation`, or `incomplete`. Code completion alone does
+not make a feature complete when required manual validation remains pending.
+
 ## Validation
 
 Run the nearest directly matched tests and invariant checks first for the
