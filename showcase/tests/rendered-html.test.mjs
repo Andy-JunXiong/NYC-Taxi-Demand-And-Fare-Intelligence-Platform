@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("https://preview.example.test/", {
+    new Request(`https://preview.example.test${pathname}`, {
       headers: {
         accept: "text/html",
         host: "preview.example.test",
@@ -51,4 +51,18 @@ test("publishes absolute social-preview metadata and a real PNG", async () => {
   const image = await readFile(new URL("../public/og.png", import.meta.url));
   assert.deepEqual([...image.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.ok(image.byteLength > 100_000);
+});
+
+test("server-renders the recursive evaluation review surface", async () => {
+  const response = await render("/review");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /Recursive Evaluation Review/);
+  assert.match(html, /先锁定评估方法/);
+  assert.match(html, /96/);
+  assert.match(html, /24×24/);
+  assert.match(html, /NOT PERMITTED/);
+  assert.match(html, /model_validation\.py/);
 });

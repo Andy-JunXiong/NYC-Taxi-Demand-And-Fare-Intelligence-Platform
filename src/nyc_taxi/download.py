@@ -44,6 +44,32 @@ def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
+def check_source_availability(url: str, *, timeout: int = 30) -> dict[str, object]:
+    """Check one official object without downloading its body or writing locally."""
+    request = Request(
+        url,
+        headers={"User-Agent": "nyc-taxi-intelligence/1.0"},
+        method="HEAD",
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            status = int(getattr(response, "status", 200) or 200)
+            length = response.headers.get("Content-Length")
+            return {
+                "status": "available",
+                "http_status": status,
+                "content_length": int(length) if length and length.isdigit() else None,
+            }
+    except HTTPError as exc:
+        if exc.code in {403, 404}:
+            return {
+                "status": "source_not_available",
+                "http_status": int(exc.code),
+                "content_length": None,
+            }
+        raise
+
+
 def download_file(url: str, destination: Path, *, retries: int = 3) -> dict[str, object]:
     """Download atomically and return reproducibility metadata."""
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -98,6 +124,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, default=Path("data/raw/manifest.json"))
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--check-availability",
+        action="store_true",
+        help="verify official objects without downloading or writing files",
+    )
     return parser
 
 
@@ -122,12 +153,57 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("Supply --year/--months or --start/--end")
     if len(periods) > 12:
         raise SystemExit("At most 12 months may be requested at once")
-    for year, month in periods:
-        destination = raw_path(args.root, year, month, args.trip_type)
-        url = parquet_url(year, month, args.trip_type)
-        if args.dry_run:
-            print(f"Would download {url} -> {destination}")
-        elif destination.exists() and not args.force:
+    if args.dry_run and args.check_availability:
+        raise SystemExit("--dry-run and --check-availability cannot be combined")
+
+    targets = [
+        {
+            "period": f"{year}-{month:02d}",
+            "destination": raw_path(args.root, year, month, args.trip_type),
+            "url": parquet_url(year, month, args.trip_type),
+        }
+        for year, month in periods
+    ]
+    if args.dry_run:
+        for target in targets:
+            print(f"Would download {target['url']} -> {target['destination']}")
+        return 0
+
+    availability = []
+    for target in targets:
+        destination = target["destination"]
+        if destination.exists() and not args.force and not args.check_availability:
+            continue
+        source = check_source_availability(target["url"])
+        availability.append({
+            "period": target["period"],
+            "url": target["url"],
+            **source,
+        })
+    unavailable = [
+        source for source in availability if source["status"] != "available"
+    ]
+    if unavailable:
+        print(json.dumps({
+            "status": "blocked",
+            "check": "tlc_source_availability",
+            "writes_performed": False,
+            "sources": availability,
+        }, indent=2))
+        return 2
+    if args.check_availability:
+        print(json.dumps({
+            "status": "ready",
+            "check": "tlc_source_availability",
+            "writes_performed": False,
+            "sources": availability,
+        }, indent=2))
+        return 0
+
+    for target in targets:
+        destination = target["destination"]
+        url = target["url"]
+        if destination.exists() and not args.force:
             print(f"Skipping existing file: {destination}")
         else:
             print(f"Downloading {url}")

@@ -13,6 +13,10 @@ from .governance import build_all_silver, build_gold_demand
 from .quality_gates import run_gates
 
 
+class SourceUnavailableError(RuntimeError):
+    """Raised before governance writes when an official monthly source is absent."""
+
+
 def run_monthly(start, end, *, force: bool = False, skip_download: bool = False) -> dict:
     periods = []
     year, month = start.year, start.month
@@ -20,7 +24,15 @@ def run_monthly(start, end, *, force: bool = False, skip_download: bool = False)
         periods.append(f"{year}-{month:02d}")
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     if not skip_download:
-        download_main(["--start", periods[0], "--end", periods[-1], *( ["--force"] if force else [] )])
+        download_status = download_main(
+            ["--start", periods[0], "--end", periods[-1], *( ["--force"] if force else [] )]
+        )
+        if download_status == 2:
+            raise SourceUnavailableError(
+                "Official TLC source is not available; monthly governance stopped before writes"
+            )
+        if download_status != 0:
+            raise RuntimeError(f"TLC download failed with status {download_status}")
     start_dt, end_dt = datetime(start.year, start.month, 1), datetime(end.year, end.month, 1)
     reports = build_all_silver(
         Path("data/raw"), Path("data/interim/silver"), Path("data/processed/quality"),
@@ -64,7 +76,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.start > args.end:
         raise SystemExit("start month must not be after end month")
-    print(run_monthly(args.start, args.end, force=args.force, skip_download=args.skip_download))
+    try:
+        result = run_monthly(
+            args.start, args.end, force=args.force, skip_download=args.skip_download
+        )
+    except SourceUnavailableError:
+        # download_main already emitted the structured source report.
+        return 2
+    print(result)
     return 0
 
 

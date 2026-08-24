@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "recursive-evaluation-2026-08-24-v1",
+  "rationale": "docs/recursive-evaluation-preregistration-2026-08-24.md",
+  "candidate_model_sha256": "29354b382cd6761c3a307c76d821bb1855354cc87eb3c8f9b020cdf83134e334",
+  "training_period_end": "2026-04-30",
+  "horizon_hours": 24,
+  "origin_hour_step": 5,
+  "observational_only": true,
+  "promotion_permitted": false,
+  "blocks": [
+    {
+      "id": "A",
+      "start_date": "2026-06-01",
+      "end_date": "2026-06-24"
+    },
+    {
+      "id": "B",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-22"
+    },
+    {
+      "id": "C",
+      "start_date": "2026-11-09",
+      "end_date": "2026-12-02"
+    },
+    {
+      "id": "D",
+      "start_date": "2026-12-15",
+      "end_date": "2027-01-07"
+    }
+  ],
+  "metric_roles": {
+    "daily_win_rate": "proposed_release_criterion",
+    "worst_day_degradation": "proposed_release_criterion",
+    "daily_drift": "advisory",
+    "horizon_clock": "diagnostic_only"
+  }
+}

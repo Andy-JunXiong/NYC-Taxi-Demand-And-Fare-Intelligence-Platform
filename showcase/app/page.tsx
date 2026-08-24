@@ -28,6 +28,7 @@ export default function Home() {
           <a href="#evidence">Evidence</a>
           <a href="#model">Model</a>
           <a href="#system">System</a>
+          <a href="/review">Review plan</a>
         </nav>
         <span className="live"><i /> Production approved</span>
       </header>
@@ -50,6 +51,7 @@ export default function Home() {
             <div className="hero-actions">
               <a className="button" href="#questions">Read the case study</a>
               <a className="text-link" href="#model">Jump to model evidence →</a>
+              <a className="text-link" href="/review">Review candidate v2 plan →</a>
             </div>
             <div className="metric-row">
               <div><small>Governed history</small><strong>37</strong><span>monthly partitions</span></div>
